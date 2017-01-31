@@ -203,7 +203,7 @@ of ways for a given bag by multiplying the number of ways to do each step.
 ```{r, echo = FALSE}
 ways <- function(lids, bags = 0:4, prior = rep(1, length.out = length(bags))) {
   lids <- strsplit(lids, "")[[1]]
-  lids <- as.numeric(as.factor(lids)) - 1
+  lids <- ifelse(lids == "B", 0, 1)  # recode using 0's and 1's
   W <- matrix(NA, nrow = 0, ncol = length(lids))
   for (bag in bags) {
     w <- ifelse(lids == 0, bag, 4 - bag)
@@ -244,7 +244,7 @@ But we don't have to start all over, we could also start from what we knew
 when we had only seen `r lids`:
 ```{r}
 ways("GGG")
-ways("B", prior = c(64, 27, 8, 1, 0))
+ways("B", prior = ways("GGG")$ways)    
 ```
 
 This means
@@ -256,7 +256,10 @@ This means
  
  3. We can hanlde (or get a computer to handle for us) more than just a small number 
  of bags (stay tuned).
- 
+
+Also, it is only the relative number of ways that matters.  We can convert
+to probability by dividing by the total number of ways.
+
 ```{r, include = FALSE}
 bayes_prop <- 
   function(data = c(0, 0, 0, 1), p = c(0, 0.25, 0.50, 0.75, 1.0),  
