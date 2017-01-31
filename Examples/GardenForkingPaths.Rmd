@@ -1,0 +1,307 @@
+---
+title: "Garden of Forking Paths"
+author: "Statistical Rethinking, Chapter 2"
+date: "January 30, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(mosaic)
+require(rethinking)
+
+# Multiple plot function
+#
+# ggplot objects can be passed in ..., or to plotlist (as a list of ggplot objects)
+# - cols:   Number of columns in layout
+# - layout: A matrix specifying the layout. If present, 'cols' is ignored.
+#
+# If the layout is something like matrix(c(1,2,3,3), nrow=2, byrow=TRUE),
+# then plot 1 will go in the upper left, 2 will go in the upper right, and
+# 3 will go all the way across the bottom.
+#
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
+  
+  # Make a list from the ... arguments and plotlist
+  plots <- c(list(...), plotlist)
+  
+  numPlots = length(plots)
+  
+  # If layout is NULL, then use 'cols' to determine layout
+  if (is.null(layout)) {
+    # Make the panel
+    # ncol: Number of columns of plots
+    # nrow: Number of rows needed, calculated from # of cols
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                     ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+  
+  if (numPlots==1) {
+    print(plots[[1]])
+    
+  } else {
+    # Set up the page
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+    
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+      # Get the i,j matrix positions of the regions that contain this subplot
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+      
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+```
+
+# What's in the bag?
+
+There are five bags.  Each one has four milk jug lids that are either blue or green.
+Each bag has a different number of blue lids (0, 1, 2, 3, or 4).  If we randomly
+select a bag and then sample (with replacement) from the bag, what can we say about
+which bag we selected?
+
+We won't know for sure which bag it is, but some bags will be more likely than others.
+Can we quantify this?
+
+```{r, echo = FALSE}
+Garden <-
+  expand.grid(
+    bag = 0:4,
+    a = 1:4,
+    b = 1:4,
+    c = 1:4) %>% 
+  mutate(
+    ya = bag + (a - 2.5) / 5,
+    yb = ya + (b - 2.5) / 25,
+    yc = yb + (c - 2.5) / 125,
+    cola = ifelse(a <= bag, "B", "G"),
+    colb = ifelse(b <= bag, "B", "G"),
+    colc = ifelse(c <= bag, "B", "G"),
+    match = (cola == "B") & (colb == "G") & (colc == "B")
+  )
+
+draw_garden <- function(pattern = "***", bags = 0:4) {
+  range <- c(min(bags) - 0.5, max(bags) + 0.5)
+  pattern <- strsplit(pattern, split = "")[[1]] 
+  if (length(pattern) != 3) stop("pattern must be of length 3")
+  Garden_plus <-
+    Garden %>%
+    filter( range[1] <= yc & yc <= range[2] ) %>%
+    mutate(
+      match_a = (cola == pattern[1] | (pattern[1] == "*")),
+      match_ab = match_a & (colb == pattern[2] | (pattern[2] == "*")),
+      match = match_ab & (colc == pattern[3] | (pattern[3] == "*"))
+    ) 
+  p <-
+    ggplot(Garden_plus) + 
+    geom_segment(data = Garden_plus %>% filter(b ==1, c == 1), 
+                 aes(x = 0, xend = 1, y = ya, yend = ya, alpha = match_a), 
+                 colour = "gray70", size = 0.2) +
+    geom_segment(data = Garden_plus %>% filter(c == 1), 
+                 aes(x = 1, xend = 2, y = ya, yend = yb, alpha = match_ab), 
+                 colour = "gray70", size = 0.2) +
+    geom_segment(data = Garden_plus,
+                 aes(x = 2, xend = 3, y = yb, yend = yc, alpha = match), 
+                 colour = "gray70", size = 0.2) +
+    geom_point(data = Garden_plus %>% filter(b == 1, c == 1), 
+               aes(x = 1, y = ya, color = cola, alpha = match_a), size = 1.2) +
+    geom_point(data = Garden_plus %>% filter(c == 1), 
+               aes(x = 2, y = yb, color = colb, alpha = match_ab), size = 0.9) +
+    geom_point(aes(x = 3, y = yc, color = colc, alpha = match), size = 0.5) +
+    ylim(min(range) , max(range)) + 
+    coord_polar(theta = "y") +
+    scale_color_manual(values = c("blue", "green")) +
+    scale_alpha_manual(values = c(`TRUE` = 1, `FALSE` = 0.2)) +
+    theme(
+      axis.line=element_blank(),
+      axis.text.x=element_blank(),
+      axis.text.y=element_blank(),
+      axis.ticks=element_blank(),
+      axis.title.x=element_blank(),
+      axis.title.y=element_blank(),
+      legend.position="none",
+      panel.background=element_blank(),
+      panel.border=element_blank(),
+      panel.grid.major=element_blank(),
+      panel.grid.minor=element_blank(),
+      plot.background=element_blank())
+    p
+    # return(invisible(Garden_plus))
+}
+
+
+```
+
+
+## Survey says...
+
+Well not a survey really, but what do the data say?
+
+Suppose we draw one lid from the bag and it is Green.  Which bag is most likely?
+Which is least likely?  
+
+```{r, warning = FALSE, message = FALSE}
+draw_garden() + xlim(0, 1.1)
+```
+
+## Let's get some more data
+
+Let's draw two more lids (replacing the previously drawn lid 
+and mixing the bag thoroughly each time).
+
+```{r, echo = FALSE}
+lids <- "GGG"
+```
+
+Now our data is: `r lids`
+
+### A little portion of the garden
+Let's consider for a moment just the bag that has 1 Blue 
+(and 3 Greens).  How many ways are there to get `r lids`?  
+Here's a map through the garden of forking paths for this bag.
+
+```{r, warning = FALSE, message = FALSE}
+draw_garden(bags = 1)
+```
+
+But not all paths lead to `r lids`.  Let's highlight just that ones that do.
+
+```{r, warning = FALSE, message = FALSE}
+draw_garden(bags = 1, pattern = lids)
+```
+
+Counting up we see there are 3 * 3 * 3 = 27 such ways.
+
+### A view of the whole garden
+
+Here's the whole garden.
+
+```{r, warning = FALSE, message = FALSE}
+draw_garden(bags = 0:4)
+```
+
+Again, let's highlight just the paths that lead to `r lids`.
+
+```{r, warning = FALSE, message = FALSE}
+draw_garden(bags = 0:4, pattern = lids)
+```
+It's not too hard to count up the number of paths that lead to
+`r lids`, but before we do that, let's come up with a bookkeeping
+system that keeps us organized.
+
+## Another View
+
+As we collect more data, it is soon going to be impossible to create maps of the 
+whole garden and to count up possible ways of navigating the map to get to the data.
+We need some improved methods.  The key insight is that we obtain the total number
+of ways for a given bag by multiplying the number of ways to do each step.
+
+```{r, echo = FALSE}
+ways <- function(lids, bags = 0:4, prior = rep(1, length.out = length(bags))) {
+  lids <- strsplit(lids, "")[[1]]
+  lids <- as.numeric(as.factor(lids)) - 1
+  W <- matrix(NA, nrow = 0, ncol = length(lids))
+  for (bag in bags) {
+    w <- ifelse(lids == 0, bag, 4 - bag)
+    W <- rbind(W, w)
+  }
+  row.names(W) = paste("bag", bags)
+  s <- sum(prior * apply(W, 1, prod)) %>% as.vector()
+  res <- 
+    data_frame(
+      bag = bags,
+      prior = prior,
+      terms = apply(W, 1, function(x) paste(x, collapse = " * ")),
+      ways = apply(W, 1, prod) * prior, 
+      prob = ways / sum(ways),
+      probf = paste0(ways, "/", sum(ways))
+    )
+  res %>% data.frame()
+}
+```
+
+```{r}
+ways("GGG")
+```
+
+### Another bit of data
+
+```{r, include = FALSE}
+lids4 <- "GGGB"
+```
+
+Let draw another lid.  Now our data are `r lids4`.  We can use the same
+bookkeeping to tally up the ways.
+```{r}
+ways("GGGB")
+```
+
+But we don't have to start all over, we could also start from what we knew
+when we had only seen `r lids`:
+```{r}
+ways("GGG")
+ways("B", prior = c(64, 27, 8, 1, 0))
+```
+
+This means
+
+ 1. We can compute the total number of ways (or probabilities) without creating all of the paths.
+ 
+ 2. We can update to include new data by taking the informationt we had before
+ as prior information and and starting from there.
+ 
+ 3. We can hanlde (or get a computer to handle for us) more than just a small number 
+ of bags (stay tuned).
+ 
+```{r, include = FALSE}
+bayes_prop <- 
+  function(data = c(0, 0, 0, 1), p = c(0, 0.25, 0.50, 0.75, 1.0),  
+           prior = 1) {
+  Grid <- data_frame(p = p) %>%
+    mutate(
+      prior_paths = prior,
+      prior = prior_paths / sum(prior_paths),
+      likelihood0 = dbinom(sum(head(data, -1)), size = length(data)-1, prob = p),
+      likelihood = dbinom(sum(data), size = length(data), prob = p),
+      paths0 = prior_paths * likelihood0 * 4^(length(data) - 1),
+      paths = prior_paths * likelihood * 4^length(data),
+      posterior0 = paths0 / sum(paths0),
+      posterior = paths / sum(paths),
+      d = paste(data, collapse = " "),
+      n = length(data)
+    )
+  return(Grid)
+  ggplot(Grid) +
+    # geom_point(aes(x = p, y = posterior0, color = "prior")) +
+    geom_line(aes(x = p, y = posterior0, color = "prior")) +
+    # geom_point(aes(x = p, y = posterior, color = "posterior")) +
+    geom_line(aes(x = p, y = posterior, color = "posterior")) +
+    # geom_point(aes(x = p, y = paths, color = "paths")) +
+    # geom_line(aes(x = p, y = paths, color = "paths")) +
+    labs(y = "", title = paste(data, collapse = " "))
+} 
+```
+
+Here is a grphical view of how our probabilities for each bag are updated as we see 
+each bit of data:
+
+```{r, echo = FALSE}
+G <-
+  Reduce(c, c(0, 0, 0, 1, 0, 1, 0, 0, 1), accumulate = TRUE) %>% 
+  lapply(bayes_prop, p = seq(0, 1, length.out = 5)) %>%
+  bind_rows()
+
+ggplot(G) +
+  # geom_line(aes(x = p, y = posterior, color = "posterior"), alpha = 0.5, size = 1.2) +
+  geom_point(aes(x = p, y = posterior, color = "posterior"), size = 2) +
+  # geom_line(aes(x = p, y = posterior0, color = "prior"), alpha = 0.5, size = 1.2) +
+  geom_point(aes(x = p, y = posterior0, color = "prior"), size = 1.2) +
+  facet_wrap(~d)
+```
+
+
+

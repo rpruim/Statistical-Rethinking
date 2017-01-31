@@ -1,0 +1,125 @@
+---
+title: "Statistical Rethinking (Code)"
+author: "Chapter 2"
+date: "January 30, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(mosaic)
+require(rethinking)
+```
+
+```{r, chunk2.1}
+ways <- c(0, 3, 8, 9, 0)
+ways / sum(ways)
+```
+
+```{r, chunk2.2}
+dbinom(6, size = 9, prob = 0.5)
+```
+
+```{r, chunk2.3}
+# define grid
+p_grid <- seq(from = 0,
+              to = 1,
+              length.out = 20)
+
+# define prior
+prior <- rep(1, 20)
+
+# compute likelihood at each value in grid
+likelihood <- dbinom(6, size = 9, prob = p_grid)
+
+# compute product of likelihood and prior
+unstd.posterior <- likelihood * prior
+
+# standardize the posterior, so it sums to 1
+posterior <- unstd.posterior / sum(unstd.posterior)
+
+```
+
+
+```{r, chunk2.3a}
+# define grid
+Water9 <-
+  data_frame(p =  seq(from = 0, to = 1, length.out = 20)) %>% 
+  mutate(
+    unstd.prior = 1,                        # recycles automatically
+    prior = unstd.prior / sum(unstd.prior), # standardize the prior
+    likelihood =  dbinom(6, size = 9, prob = p),
+    unstd.posterior = likelihood * prior,
+    posterior = unstd.posterior / sum(unstd.posterior),
+    posterior.dens = posterior / 0.001
+  )  
+```
+
+```{r, chunk2.4}
+plot(p_grid,
+     posterior,
+     type = "b",
+     xlab = "probability of water",
+     ylab = "posterior probability")
+mtext("20 points")
+```
+
+
+
+
+```{r, chunk2.4a}
+xyplot(posterior ~ p_grid,
+     type = "b",
+     xlab = "probability of water",
+     ylab = "posterior probability",
+     main = "20 points")
+```
+
+```{r, chunk2.4b}
+xyplot(prior + likelihood + posterior ~ p, data = Water9, type = "b", 
+     auto.key = list(points = TRUE, lines = TRUE),
+     xlab = "probability of water",
+     ylab = "posterior probability",
+     main = "20-point grid")
+ggplot(Water9, aes(x = p)) +
+  geom_line(aes(y = prior, color = "prior")) +
+  geom_line(aes(y = likelihood, color = "likelihood")) +
+  geom_line(aes(y = posterior, color = "posterior")) +
+  geom_point(aes(y = prior, color = "prior")) +
+  geom_point(aes(y = likelihood, color = "likelihood")) +
+  geom_point(aes(y = posterior, color = "posterior")) +
+  labs(title = "20-point grid")
+```
+```{r, chunk2.5}
+prior <- ifelse(p_grid < 0.5, 0, 1)
+prior <- exp(-5 * abs(p_grid - 0.5))
+```
+
+```{r, chunk2.6}
+library(rethinking)
+globe.qa <- 
+  map(alist(w ~ dbinom(9, p),  # binomial likelihood
+            p ~ dunif(0, 1)),  # uniform prior
+      data = list(w = 6))
+
+# display summary of quadratic approximation
+precis(globe.qa)
+```
+
+```{r, chunk2.7}
+# analytical calculation
+w <- 6
+n <- 9
+curve(dbeta(x, w + 1, n - w + 1), from = 0, to = 1)
+# quadratic approximation
+curve(dnorm(x, 0.67, 0.16), lty = 2, add = TRUE)
+```
+
+```{r, chunk2.7a}
+# analytical calculation
+w <- 6
+n <- 9
+plotDist("beta", params = list(shape1 = w + 1, shape2 = n - w + 1))
+# quadratic approximation
+plotDist("norm", mean = 0.67, sd = 0.16, add = TRUE, col = 2, lty = 2)
+```
