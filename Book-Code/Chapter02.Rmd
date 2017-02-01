@@ -1,7 +1,7 @@
 ---
 title: "Statistical Rethinking (Code)"
 author: "Chapter 2"
-date: "January 30, 2017"
+date: "January, 2017"
 output: html_document
 ---
 
@@ -9,18 +9,50 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 require(mosaic)
 require(rethinking)
+Original <- FALSE
+Updated <- TRUE
+
+knitr::opts_template$set(
+  original = list(eval = Original, include = Original),
+  updated = list(eval = Updated, include = Updated))
 ```
+
+
+```{r, opts.label = "original", results = "asis", echo = FALSE}
+cat("The original code from *Statistical Rethinking* is shown below.")
+cat("\n\n")
+```
+
+```{r, opts.label = "updated", results = "asis", echo = FALSE}
+cat(paste(
+"Code from *Statistical Rethinking* modified by R Pruim is shown below.  Differences to the oringal include:",
+"",
+"  * a preference for putting data into containers (data frames, mostly), rather than working with lose vectors.",
+"  * use of `lattice` and `ggplot2` rather than base graphics",
+"  * use of `tidyverse` for data transformation",
+"  * better (in my opinion) naming conventions",
+sep = "\n"
+))
+cat("\n\n")
+```
+
+## R code 2.1
 
 ```{r, chunk2.1}
 ways <- c(0, 3, 8, 9, 0)
 ways / sum(ways)
 ```
 
+## R code 2.2
+
+```{r, chunk2.1}
 ```{r, chunk2.2}
 dbinom(6, size = 9, prob = 0.5)
 ```
 
-```{r, chunk2.3}
+## R code 2.3
+
+```{r, chunk2.3, opts.label = "original"}
 # define grid
 p_grid <- seq(from = 0,
               to = 1,
@@ -41,7 +73,7 @@ posterior <- unstd.posterior / sum(unstd.posterior)
 ```
 
 
-```{r, chunk2.3a}
+```{r, chunk2.3a, opts.label = "updated"}
 # define grid
 Water9 <-
   data_frame(p =  seq(from = 0, to = 1, length.out = 20)) %>% 
@@ -55,7 +87,9 @@ Water9 <-
   )  
 ```
 
-```{r, chunk2.4}
+## R code 2.4
+
+```{r, chunk2.4, opts.label = "original"}
 plot(p_grid,
      posterior,
      type = "b",
@@ -67,15 +101,15 @@ mtext("20 points")
 
 
 
-```{r, chunk2.4a}
-xyplot(posterior ~ p_grid,
+```{r, chunk2.4a, opts.label = "updated"}
+xyplot(posterior ~ p, data = Water9,
      type = "b",
      xlab = "probability of water",
      ylab = "posterior probability",
      main = "20 points")
 ```
 
-```{r, chunk2.4b}
+```{r, chunk2.4b, opts.label = "updated"}
 xyplot(prior + likelihood + posterior ~ p, data = Water9, type = "b", 
      auto.key = list(points = TRUE, lines = TRUE),
      xlab = "probability of water",
@@ -88,12 +122,43 @@ ggplot(Water9, aes(x = p)) +
   geom_point(aes(y = prior, color = "prior")) +
   geom_point(aes(y = likelihood, color = "likelihood")) +
   geom_point(aes(y = posterior, color = "posterior")) +
-  labs(title = "20-point grid")
+  labs(title = "20-point grid") 
 ```
-```{r, chunk2.5}
+
+## R code 2.5
+
+  
+```{r, chunk2.5, opts.label = "original"}
 prior <- ifelse(p_grid < 0.5, 0, 1)
 prior <- exp(-5 * abs(p_grid - 0.5))
 ```
+
+
+```{r, chunk2.5a, opts.label = "updated"}
+Water9a <-
+  data_frame(p =  seq(from = 0, to = 1, length.out = 20)) %>% 
+  mutate(
+    unstd.prior = ifelse(p < 0.5, 0, 1),
+    prior = unstd.prior / sum(unstd.prior), # standardize the prior
+    likelihood =  dbinom(6, size = 9, prob = p),
+    unstd.posterior = likelihood * prior,
+    posterior = unstd.posterior / sum(unstd.posterior),
+    posterior.dens = posterior / 0.001
+  )  
+
+Water9b <-
+  data_frame(p =  seq(from = 0, to = 1, length.out = 20)) %>% 
+  mutate(
+    unstd.prior =  exp(-5 * abs(p - 0.5)),
+    prior = unstd.prior / sum(unstd.prior), # standardize the prior
+    likelihood =  dbinom(6, size = 9, prob = p),
+    unstd.posterior = likelihood * prior,
+    posterior = unstd.posterior / sum(unstd.posterior),
+    posterior.dens = posterior / 0.001
+  )  
+```
+
+## R code 2.6
 
 ```{r, chunk2.6}
 library(rethinking)
@@ -106,7 +171,9 @@ globe.qa <-
 precis(globe.qa)
 ```
 
-```{r, chunk2.7}
+## R code 2.7
+
+```{r, chunk2.7, opts.label = "original"}
 # analytical calculation
 w <- 6
 n <- 9
@@ -115,7 +182,7 @@ curve(dbeta(x, w + 1, n - w + 1), from = 0, to = 1)
 curve(dnorm(x, 0.67, 0.16), lty = 2, add = TRUE)
 ```
 
-```{r, chunk2.7a}
+```{r, chunk2.7a, opts.label = "updated"}
 # analytical calculation
 w <- 6
 n <- 9
