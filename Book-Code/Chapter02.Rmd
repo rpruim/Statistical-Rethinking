@@ -3,18 +3,20 @@ title: "Statistical Rethinking (Code)"
 author: "Chapter 2"
 date: "January, 2017"
 output: html_document
+params:
+  original: true
+  updated: false
+  
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 require(mosaic)
 require(rethinking)
-Original <- FALSE
-Updated <- TRUE
 
 knitr::opts_template$set(
-  original = list(eval = Original, include = Original),
-  updated = list(eval = Updated, include = Updated))
+  original = list(eval = params$original, include = params$original),
+  updated = list(eval = params$updated, include = params$updated))
 ```
 
 
