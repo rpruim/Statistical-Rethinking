@@ -1,0 +1,286 @@
+---
+title: "How Wet is this Planet?"
+author: "R Pruim"
+date: "Spring, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(mosaic)
+```
+
+```{r, include = FALSE}
+bayes_prop <- 
+  function(data = c(0, 0, 0, 1), p = c(0, 0.25, 0.50, 0.75, 1.0),  
+           prior = 1) {
+  Grid <- data_frame(p = p) %>%
+    mutate(
+      prior_paths = prior,
+      prior = prior_paths / sum(prior_paths),
+      likelihood0 = dbinom(sum(head(data, -1)), size = length(data)-1, prob = p),
+      likelihood = dbinom(sum(data), size = length(data), prob = p),
+      paths0 = prior_paths * likelihood0 * 4^(length(data) - 1),
+      paths = prior_paths * likelihood * 4^length(data),
+      posterior0 = paths0 / sum(paths0),
+      posterior = paths / sum(paths),
+      d = paste(data, collapse = " "),
+      n = length(data)
+    )
+  return(Grid)
+  ggplot(Grid) +
+    # geom_point(aes(x = p, y = posterior0, color = "prior")) +
+    geom_line(aes(x = p, y = posterior0, color = "prior")) +
+    # geom_point(aes(x = p, y = posterior, color = "posterior")) +
+    geom_line(aes(x = p, y = posterior, color = "posterior")) +
+    # geom_point(aes(x = p, y = paths, color = "paths")) +
+    # geom_line(aes(x = p, y = paths, color = "paths")) +
+    labs(y = "", title = paste(data, collapse = " "))
+} 
+```
+
+
+# Collecting some data
+
+How can we estimate proportion of the earth is covered with water?  One option would be to sample points on earth, 
+and then to visit them to see whether they are water or land.  Much faster and cheaper is to use google maps for this.
+
+Here's some R code that will sample lat lon points on earth. 
+
+```{r}
+require(mosaic)
+Points <- rgeo(9)      #  9 random locations
+Points
+```
+
+The data are stored in a **data frame** one of several **containers** R uses to hold related bits of data.
+Data frames are arranged in rows and columns.  Each row is a case, each column is a variable.  In this 
+example, we have nine cases, and for each one we have values for two variables (`lat` and `lon`).
+
+Now we can use Google maps to see whether each point is on land or water.
+
+```{r, eval = FALSE}
+googleMap(position = Points, mark = TRUE)     # open a map for each of them
+```
+
+You may need to zoom in or out a bit to be sure you are correctly identifying whether your points are on water
+or land (and to figure out where in the world you are).  Do this and record nine values of 0 (Land) or 1 (Water).
+Alternatively, we could use text codes for this.  The advantage of text is clarity. The advantage of numbers
+is the ability to do arithmetic.  But R lets us convert back and forth pretty easily, so often clarity is the way
+to go.
+
+You can add your water/land data to this using `mutat()e`. 
+
+```{r}
+Points <-
+  Points %>%
+  mutate(
+    water = c(1, 0, 1, 1, 1, 0, 1, 0, 1),
+    status = c("W", "L", "W", "W", "W", "L", "W", "L", "W")
+  )
+Points
+```
+
+We can do some arithmetic with these in either format.  Let's compute the total number of water observations
+and the proportion that were water observations.
+```{r}
+sum(Points$water)                   # $-style
+with(Points, sum(water))            # with() style
+sum( ~ water, data = Points)        # formula style (requires mosaic package)
+sum( ~ (status == "W"), data = Points)  
+prop( ~ water, data = Points)       # proportion, requires mosaic package
+prop( ~ status, data = Points)      # proportion, requires mosaic package
+prop( ~ status, data = Points, level = "W")   # proportion, water-centric
+
+```
+
+# Bayes estimation
+
+## Big picture
+
+The situation is very similar to the situation with the milk jug lids in the bags.  One big difference 
+is that now we don't have just 5 possible proptions of blue lids (0, 0.25, 0.5, 0.75, or 1.0).  This time
+the proprtion of water could be any number between 0 and 1.  We will call this unknown value that we want
+to estimate a **parameter** (or sometimes the **estimand**).
+
+```{r, include = FALSE}
+bayes_prop <- 
+  function(data = c(0, 0, 0, 1), p = c(0, 0.25, 0.50, 0.75, 1.0),  
+           prior = 1, results = c("plot", "data")) {
+    results = match.arg(results)
+  Grid <- data_frame(p = p) %>%
+    mutate(
+      prior_paths = prior,
+      prior = prior_paths / sum(prior_paths),
+      likelihood0 = dbinom(sum(head(data, -1)), size = length(data)-1, prob = p),
+      likelihood = dbinom(sum(data), size = length(data), prob = p),
+      paths0 = prior_paths * likelihood0 * 4^(length(data) - 1),
+      paths = prior_paths * likelihood * 4^length(data),
+      posterior0 = paths0 / sum(paths0),
+      posterior = paths / sum(paths),
+      d = paste(data, collapse = " "),
+      n = length(data)
+    )
+  if (results == "data") return(Grid)
+  
+  ggplot(Grid) +
+    # geom_point(aes(x = p, y = posterior0, color = "prior")) +
+    geom_line(aes(x = p, y = prior, color = "prior"), size = 1.5, alpha = 0.7) +
+    # geom_point(aes(x = p, y = posterior, color = "posterior")) +
+    geom_line(aes(x = p, y = posterior, color = "posterior")) +
+    # geom_point(aes(x = p, y = paths, color = "paths")) +
+    # geom_line(aes(x = p, y = paths, color = "paths")) +
+    labs(y = "", title = paste(data, collapse = " "))
+  } 
+```
+
+Our prior and posterior are now **densities** (more technically **probality density functions**).  
+Densities are functions that describe probability in the following way:
+
+  * the value of the function is always non-negative.
+  * the total area under the curve is 1.  (The value of the function may go above 1 on small regions.)
+  * the area under the curve over any interval is the probability of a random variable being in that interval.
+  
+So where the curve is higher, there is more probability.  Where it is lower, there is less. 
+
+Avoiding the issues of how we calculate these things.  Let's look at the prior and posterior for our data.
+We'll use a uniform prior (all values of $p$ are equally likely), as if we were intergalactic travelers with
+no prior knowledge about the amount of water on planet earth.
+
+```{r}
+bayes_prop(data = Points$water, p = seq(0, 1, length.out = 100)) 
+```
+
+Or we could use a prior that reflects that we believe the majority of the planet is water, but otherwise we don't know anything.
+
+
+```{r}
+bayes_prop(data = Points$water, 
+           p = seq(0, 1, length.out = 100),
+           prior = as.numeric(seq(0, 1, length.out = 100) > 0.5))
+```
+
+We can also build our posterior iteratively, each time adding the new data value using the previous posterior as the new prior.
+
+```{r, echo = FALSE}
+G <-
+  Reduce(c, Points$water, accumulate = TRUE) %>% 
+  lapply(bayes_prop, p = seq(0, 1, length.out = 100), results = "data") %>%
+  bind_rows()
+
+ggplot(G) +
+  geom_line(aes(x = p, y = posterior0, color = "prior")) +
+  geom_line(aes(x = p, y = posterior, color = "posterior")) +
+  facet_wrap(~d)
+```
+
+```{r}
+G <-
+  Reduce(c, Points$water, accumulate = TRUE) %>% 
+  lapply(bayes_prop, 
+         p = seq(0, 1, length.out = 100), 
+         prior = as.numeric(seq(0, 1, length.out = 100) >= 0.5), 
+         results = "data") %>%
+  bind_rows()
+
+ggplot(G) +
+  geom_line(aes(x = p, y = posterior0, color = "prior")) +
+  geom_line(aes(x = p, y = posterior, color = "posterior")) +
+  facet_wrap(~d)
+```
+
+## The Grid Method
+
+So how do we convert priors into posteriors that are updated based on our data?  In this 
+particular example, those of you who have had Stat 343 would be able to do the calculations
+to show that when the prior is uniform, then the posterior is beta and to work out the 
+parameters of the beta distribution.  But since there are relatively few examples where 
+we can easily derive the posterior as a function, we will focus instead on three computational methods:
+
+  * Grid Method
+  * Quadratic Approximation
+  * MCMC (using Stan)
+  
+The Grid method is the simplest, but can only be practially applied in very limited situations.
+Becase it is easy and useful for developing an understanding of how Bayesian updating works, it's 
+a good place to start.  Soon we we will come to prefer the otehr methods.
+
+The method is pretty simple:
+
+  1. Create a grid of possible parameter values.  (In this case, a sequence of values between 0 and 1).
+  
+  2. At each point in the grid, evaluate/define the prior.
+  
+  3. At each point in the grid, evaluate the likelihood.
+  
+  4. At each point in the grid, evaluate prior * likelihood.
+  
+  5. Normalize the posterior
+  
+      * easy version: by deviding `prior * likelihood / sum(prior * likelihood)`
+      * better version: divide by a constant that makes the area under the cureve = 1
+  
+Here's how to do this for a proportion assuming 
+
+  * the proprtion remains constant
+  * the data values are each independent of the others.
+  
+```{r}
+BinomGrid <- 
+  expand.grid(p = seq(0, 1, by = 0.001)) %>%       # create grid of values for p
+  mutate(                                             # add additional variables
+    prior = 1,                              # uniform prior, value gets recycled
+    likelihood = dbinom(6, size = 9, prob = p),            # binomial probabilty
+    posterior_raw = prior * likelihood,                    # kernel of posterior
+    posterior1 = posterior_raw / sum(posterior_raw),        # easy normalization
+    posterior = posterior_raw / sum(posterior_raw) / 0.001 # fancy normalization
+  ) 
+head(BinomGrid)
+```
+
+
+
+```{r}
+xyplot(prior + posterior ~ p, data = BinomGrid, type = "l", lwd = 2,
+       auto.key = list(lines = TRUE, points = FALSE))
+```
+
+
+## Is the majority of the world covered by water?
+
+We can answer this question by computing the area under the posterior curver above the interval
+(0.5, 1.0).  But how do we do that?  Our posterior is not represented as a function, just a 
+bunch of points.
+
+Our usual approach is to do **posterior sampling**.  This is because
+
+  * it will work the same for all of our Bayesian updating methods
+  * it is very easy and accurate (it works better if we do a larger posterior sample)
+  
+```{r, fig.keep = "last"}
+posterior_sample <-
+  with(BinomGrid, sample(p, size = 1e5, prob = posterior, replace = TRUE))
+
+histogram( ~ posterior_sample, width = 0.01)
+plotPoints( posterior ~ p, data = BinomGrid, type = "l", add = TRUE, lwd = 3)
+```
+
+```{r}
+prop( ~ (posterior_sample > 0.5))
+```
+
+```{r}
+# credible interval -- central portion method
+cdata(~posterior_sample, 0.95)   # central 95% credible interval
+```
+
+## Your Turn
+
+Using the data you collected and the data from several neighboring groups, 
+
+  * Create an appropriate grid
+  * Plot the posterior 
+  * Compute the posterior probabity that the majority of the earth is covered with water
+  * Compute a central 95% credible interval for the proprtion of the earth covered with water.
+  
+Do this for a uniform prior and for at least one other prior.
