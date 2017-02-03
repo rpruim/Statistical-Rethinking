@@ -151,6 +151,8 @@ no prior knowledge about the amount of water on planet earth.
 bayes_prop(data = Points$water, p = seq(0, 1, length.out = 100)) 
 ```
 
+### Different Priors
+
 Or we could use a prior that reflects that we believe the majority of the planet is water, but otherwise we don't know anything.
 
 
@@ -159,6 +161,17 @@ bayes_prop(data = Points$water,
            p = seq(0, 1, length.out = 100),
            prior = as.numeric(seq(0, 1, length.out = 100) > 0.5))
 ```
+
+Or perhaps we want a prior that says "close to 2/3 water".  Here's an example that gives all 
+probabilities a chance, but gives probabilities near 2/3 a better chance.
+
+```{r}
+bayes_prop(data = Points$water, 
+           p = seq(0, 1, length.out = 100),
+           prior = triangle::dtriangle(seq(0, 1, length.out = 100), 0, 1, 2/3))
+```
+
+### One datum at at a time
 
 We can also build our posterior iteratively, each time adding the new data value using the previous posterior as the new prior.
 
@@ -189,6 +202,21 @@ ggplot(G) +
   facet_wrap(~d)
 ```
 
+```{r}
+G <-
+  Reduce(c, Points$water, accumulate = TRUE) %>% 
+  lapply(bayes_prop, 
+         p = seq(0, 1, length.out = 100), 
+         prior = triangle::dtriangle(seq(0, 1, length.out = 100), 0, 1, 2/3), 
+         results = "data") %>%
+  bind_rows()
+
+ggplot(G) +
+  geom_line(aes(x = p, y = posterior0, color = "prior")) +
+  geom_line(aes(x = p, y = posterior, color = "posterior")) +
+  facet_wrap(~d)
+```
+
 ## The Grid Method
 
 So how do we convert priors into posteriors that are updated based on our data?  In this 
@@ -209,22 +237,43 @@ The method is pretty simple:
 
   1. Create a grid of possible parameter values.  (In this case, a sequence of values between 0 and 1).
   
-  2. At each point in the grid, evaluate/define the prior.
+    Useful R functions: `seq()` and `expand.grid()`.
+  
+  2. At each point in the grid, evaluate/define the prior.  
+    
+    We will learn more about how to choose a prior later.  When there is little information
+    before data are collected, priors tend to be fairly flat over the range of possible
+    parameter values (but when the range of possible paramter values is unbounded, the 
+    prioir is not typically completely flat like the uniform prior.)
   
   3. At each point in the grid, evaluate the likelihood.
   
+    The likelihood funciton is the heart of the model.  Typically it is generated
+    by some **data story** that describes how data could be generated.  (The data
+    story need not be technically correct to generate the correct likelihood function.
+    And the likelihood function doesn't need to be "correct" to be useful.  We will
+    eventually learn some diagnostic tools to see how well our model is performing.
+    For now we will focus on the mechanics.)
+  
   4. At each point in the grid, evaluate prior * likelihood.
+  
+    This is simple arithmetic.
   
   5. Normalize the posterior
   
       * easy version: by deviding `prior * likelihood / sum(prior * likelihood)`
       * better version: divide by a constant that makes the area under the cureve = 1
+        (If the sequence is evenly spaced, as is usually the case, this is the 
+        width of the subdivisions in the grid.)
   
-Here's how to do this for a proportion assuming 
+Here's how to do this for a proportion assuming the following data story:
+ 
+  * $p$ is the actual proprtion of water on earth 
+  * each observation has proportion $p$ of being water (and $1-p$ of being land)
+  * each observation of water or land is independent of the others
+ 
+Now let's build our grid:
 
-  * the proprtion remains constant
-  * the data values are each independent of the others.
-  
 ```{r}
 BinomGrid <- 
   expand.grid(p = seq(0, 1, by = 0.001)) %>%       # create grid of values for p
@@ -245,8 +294,15 @@ xyplot(prior + posterior ~ p, data = BinomGrid, type = "l", lwd = 2,
        auto.key = list(lines = TRUE, points = FALSE))
 ```
 
+## What do we do with our posterior?
 
-## Is the majority of the world covered by water?
+Three types of questions
+
+  1. determine probability in a fixed interval
+  2. determine an interval with specified probability
+  3. point estimates (best guesses for a particular purpose)
+  
+### Example 1: Is the majority of the world covered by water?
 
 We can answer this question by computing the area under the posterior curver above the interval
 (0.5, 1.0).  But how do we do that?  Our posterior is not represented as a function, just a 
@@ -255,19 +311,32 @@ bunch of points.
 Our usual approach is to do **posterior sampling**.  This is because
 
   * it will work the same for all of our Bayesian updating methods
-  * it is very easy and accurate (it works better if we do a larger posterior sample)
+  * it is very easy and quite accurate (it works better if we do a larger posterior sample)
   
 ```{r, fig.keep = "last"}
-posterior_sample <-
-  with(BinomGrid, sample(p, size = 1e5, prob = posterior, replace = TRUE))
+# We can't put this into BinomGrid because there aren't the same number of rows
+# (and they wouldn't mean the same thing even if there were the same number)
 
+posterior_sample <-
+  with(BinomGrid, 
+       sample(p,                #  choose one of BinomGrid$p
+              size = 1e5,       # 100,000 of these,
+              prob = posterior, # choose more likely things more often
+              replace = TRUE,   # can choose the same p multiple times
+              ))
+
+# Note how the poster sample looks just about like the posterior we created in the grid
 histogram( ~ posterior_sample, width = 0.01)
 plotPoints( posterior ~ p, data = BinomGrid, type = "l", add = TRUE, lwd = 3)
 ```
 
+The nice thing about posterior sampling is that we can work with the posterior sample just
+like we work with regular data.  Let's ask about the proportion above 0.5, for example:
 ```{r}
 prop( ~ (posterior_sample > 0.5))
 ```
+
+# Example 2: What is the central 95% of the posterior distribution?
 
 ```{r}
 # credible interval -- central portion method
