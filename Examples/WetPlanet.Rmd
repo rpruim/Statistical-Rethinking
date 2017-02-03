@@ -8,6 +8,8 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 require(mosaic)
+require(rethinking)
+trellis.par.set(theme = col.mosaic())
 ```
 
 ```{r, include = FALSE}
@@ -311,9 +313,10 @@ bunch of points.
 Our usual approach is to do **posterior sampling**.  This is because
 
   * it will work the same for all of our Bayesian updating methods
+  * it is the only thing available for some Bayesian updating methods
   * it is very easy and quite accurate (it works better if we do a larger posterior sample)
   
-```{r, fig.keep = "last"}
+```{r, fig.keep = c(2,4)}
 # We can't put this into BinomGrid because there aren't the same number of rows
 # (and they wouldn't mean the same thing even if there were the same number)
 
@@ -328,6 +331,10 @@ posterior_sample <-
 # Note how the poster sample looks just about like the posterior we created in the grid
 histogram( ~ posterior_sample, width = 0.01)
 plotPoints( posterior ~ p, data = BinomGrid, type = "l", add = TRUE, lwd = 3)
+# another view
+densityplot( ~ posterior_sample, plot.points = FALSE, col = "red")
+             
+plotPoints( posterior ~ p, data = BinomGrid, type = "l", add = TRUE, lwd = 4, alpha = 0.4)
 ```
 
 The nice thing about posterior sampling is that we can work with the posterior sample just
@@ -336,20 +343,75 @@ like we work with regular data.  Let's ask about the proportion above 0.5, for e
 prop( ~ (posterior_sample > 0.5))
 ```
 
-# Example 2: What is the central 95% of the posterior distribution?
+### Example 2: What is the central 95% of the posterior distribution?
+
+#### Percentile Interval
+
+Idea: trim an equal proportion from each side
 
 ```{r}
 # credible interval -- central portion method
 cdata(~posterior_sample, 0.95)   # central 95% credible interval
+# using PI() function in rethinking package
+require(rethinking)
+PI(posterior_sample)
+histogram( ~ posterior_sample, width = 0.01, v = PI(posterior_sample))
 ```
+
+#### Highest Posterior Density Interval
+
+Idea: Chose the portion that has the highest posterior density
+
+  * more computationally intensive (but `HPDI()` will do the work for you)
+    * we need to smooth the histogram enough that it becomes monotonic or we won't get a single interval
+  * higher sampling variance (takes a larger posterior sample to become as stable as PI)
+  * harder to explain to others
+
+```{r}
+HPDI(posterior_sample)
+histogram( ~ posterior_sample, 
+           fit = "kde", dlwd = 2,   # add density plot to histogram with thicker line
+           width = 0.02,            # histogram binwidth
+           v = HPDI(posterior_sample), 
+           h = with(BinomGrid, posterior[round(p - HPDI(posterior_sample), 3) == 0])
+)
+```
+
+## What is our best estimate?
+
+The Bayesian framework delivers a distribution (the posterior density) not a number, but 
+sometimes we need or want to convert it into a number.  Which number is the best 
+depends on the use to which it is put.  (If one specifies a **loss function**, then for 
+that particular loss function, there is a best number, but without determining the 
+loss function, it isn't clear what best means.)
+
+Here are three commonly used numbers:
+
+  * The mean of the posterior distribution
+  * The median of the posterior distribution
+  * The mode (highest point = most density) of the posterior distribution
+  
+```{r}
+mean(posterior_sample)
+median(posterior_sample)
+chainmode(posterior_sample)
+```
+If the distribution is unimodal and symmetric, all three will give the same value.  For a skewed 
+distribution, they may differ.  The mode computed using `chainmode()` is actually calculuated 
+not from the raw data but from the smoother version produced by `density()` (and used to produce
+plots with `densityplot()` and `dens()`).  
+
 
 ## Your Turn
 
-Using the data you collected and the data from several neighboring groups, 
+Suppose we collect a bit more data.  Now we have observed 20 water in 30 observations.
+Using this data 
 
-  * Create an appropriate grid
+  * Create an appropriate grid using a uniform prior
   * Plot the posterior 
   * Compute the posterior probabity that the majority of the earth is covered with water
-  * Compute a central 95% credible interval for the proprtion of the earth covered with water.
+  * Compute a 95% Percentile Interval (PI) and a 95% Highest Posterior Density Interval (HPDI) 
+  for the proprtion of the earth covered with water.  How do they compare to teach other?
+  How do they compare to the intervals from our smaller data set?  Why?
   
-Do this for a uniform prior and for at least one other prior.
+Bonus: Repeat for another prior of your choice.
