@@ -2,7 +2,9 @@
 title: "How Wet is this Planet?"
 author: "R Pruim"
 date: "Spring, 2017"
-output: html_document
+output: 
+  html_document: 
+    fig_height: 3
 ---
 
 ```{r setup, include=FALSE}
@@ -395,6 +397,12 @@ Here are three commonly used numbers:
 mean(posterior_sample)
 median(posterior_sample)
 chainmode(posterior_sample)
+histogram( ~ posterior_sample, fit = "kde", dcol = "red",
+           width = 0.01,
+           v = c(mean(posterior_sample), 
+                 median(posterior_sample), 
+                 chainmode(posterior_sample))
+)
 ```
 If the distribution is unimodal and symmetric, all three will give the same value.  For a skewed 
 distribution, they may differ.  The mode computed using `chainmode()` is actually calculuated 
