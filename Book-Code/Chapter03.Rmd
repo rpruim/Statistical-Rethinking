@@ -1,0 +1,466 @@
+---
+title: "Statistical Rethinking (Code)"
+author: "Chapter 3"
+date: "Feburary, 2017"
+output:
+  html_document: default
+  pdf_document: default
+params:
+  original: yes
+  updated: no
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(mosaic)
+require(rethinking)
+
+knitr::opts_template$set(
+  original = list(eval = params$original, include = params$original),
+  updated = list(eval = params$updated, include = params$updated))
+```
+
+```{r, opts.label = "original", results = "asis", echo = FALSE}
+cat("The original code from *Statistical Rethinking* is shown below.")
+cat("\n\n")
+```
+
+```{r, opts.label = "updated", results = "asis", echo = FALSE}
+cat(paste(
+"Code from *Statistical Rethinking* modified by R Pruim is shown below.  Differences to the oringal include:",
+"",
+"  * a preference for putting data into containers (data frames, mostly), rather than working with lose vectors.",
+"  * use of `lattice` and `ggplot2` rather than base graphics",
+"  * use of `tidyverse` for data transformation",
+"  * better (in my opinion) naming conventions",
+sep = "\n"
+))
+cat("\n\n")
+```
+
+
+
+## R code 3.1
+
+```{r, chunk3.1}
+PrPV <- 0.95
+PrPM <- 0.01
+PrV <- 0.001
+PrP <- PrPV * PrV + PrPM * (1 - PrV)
+(PrVP <- PrPV * PrV / PrP)
+
+```
+
+## R code 3.2
+
+```{r, chunk3.2}
+p_grid <- seq(from = 0,
+              to = 1,
+              length.out = 1000)
+prior <- rep(1, 1000)
+likelihood <- dbinom(6, size = 9, prob = p_grid)
+posterior <- likelihood * prior
+posterior <- posterior / sum(posterior)
+
+```
+
+```{r, chunk3.2a}
+# this function turns a "rasterized" kernel into a true (rasterized) density function
+# useful for rescaling priors and posteriors when using the grid method
+
+densify <- 
+  function(x, y) {
+    if ( diff(range(diff(x))) > 0.1 * min(abs(diff(x))) )
+      stop("`x` must be (approximately) equally spaced.")
+    
+    width <- mean(diff(x))
+    y / sum(y) / width
+  }
+  
+Water9 <- 
+  expand.grid(p = seq(from = 0, to = 1, length.out = 1000)) %>%
+  mutate(
+    prior = 1,
+    likelihood = dbinom(6, size = 9, prob = p),
+    posterior = likelihood * prior,
+    posterior = posterior / sum(posterior),
+    posterior.dens = densify(p, posterior)
+  )
+```
+
+## R code 3.3
+
+```{r, chunk3.3}
+samples <-
+  sample(p_grid,
+         prob = posterior,
+         size = 1e4,
+         replace = TRUE)
+str(samples)
+```
+
+```{r, chunk3.3a}
+water9.ps.p <- 
+  with(Water9, sample(p, prob = posterior, size = 1e4, replace = TRUE))
+```
+
+## R code 3.4
+
+```{r, chunk3.4}
+plot(samples)
+```
+
+```{r, chunk3.4a}
+xyplot(water9.ps.p ~ 1:length(water9.ps.p))
+```
+
+## R code 3.5
+
+```{r, chunk3.5}
+library(rethinking)
+dens(samples)
+```
+```{r, chunk3.5a}
+library(rethinking)
+densityplot( ~ water9.ps.p, plot.points = FALSE)
+plotPoints( posterior.dens ~ p, type = "l", add = TRUE, col = "red", data = Water9)
+```
+
+## R code 3.6
+
+```{r, chunk3.6}
+# add up posterior probability where p < 0.5
+sum(posterior[p_grid < 0.5])
+```
+
+```{r, chunk3.6a}
+# add up posterior probability where p < 0.5; 3 different ways
+with(Water9, sum(posterior[p < 0.5]))
+Water9 %>% summarize(sum(posterior[p < 0.5]))
+Water9 %>% group_by(p < 0.5) %>% summarize(sum(posterior))
+```
+
+## R code 3.7
+
+```{r, chunk3.7}
+sum(samples < 0.5) / 1e4
+```
+
+```{r, chunk3.7a}
+# prop() is in the mosaic package and aviods need to use sum() and compute denominator
+prop(water9.ps.p < 0.5) 
+```
+
+## R code 3.8
+
+```{r, chunk3.8}
+sum(samples > 0.5 & samples < 0.75) / 1e4
+```
+
+
+```{r, chunk3.8a}
+prop(water9.ps.p > 0.5 & water9.ps.p < 0.75) 
+```
+
+## R code 3.9
+
+```{r, chunk3.9}
+quantile(samples, 0.8)
+```
+
+```{r, chunk3.9a}
+quantile(water9.ps.p, 0.8)
+```
+
+## R code 3.10
+
+```{r, chunk3.10}
+quantile(samples, c(0.1, 0.9))
+```
+
+```{r, chunk3.10a}
+quantile(water9.ps.p, c(0.1, 0.9))
+```
+
+## R code 3.11
+
+```{r, chunk3.11}
+p_grid <- 
+  seq(from = 0,
+      to = 1,
+      length.out = 1000)
+prior <- rep(1, 1000)
+likelihood <- dbinom(3, size = 3, prob = p_grid)
+posterior <- likelihood * prior
+posterior <- posterior / sum(posterior)
+samples <-
+  sample(p_grid,
+         size = 1e4,
+         replace = TRUE,
+         prob = posterior)
+```
+
+```{r, chunk3.11a}
+Water3 <-
+  expand.grid(p = seq(from = 0, to = 1, length.out = 1000)) %>%
+  mutate(
+    prior = 1,   # recycling makes this into 1000 1's
+    prior = prior / sum(prior),
+    likelihood = dbinom(3, size = 3, prob = p),
+    posterior = likelihood * prior,
+    posterior = posterior / sum(posterior),
+    posterior.dens = densify(p, posterior)    # true density
+  )
+water3.ps.p <- with(Water3, sample(p, size = 1e5, replace = TRUE, prob = posterior))
+```
+
+## R code 3.12
+
+```{r, chunk3.12}
+PI(samples, prob = 0.5)
+```
+
+```{r, chunk3.12a}
+PI(water3.ps.p, prob = 0.5)
+```
+
+## R code 3.13
+
+```{r, chunk3.13}
+HPDI(samples, prob = 0.5)
+```
+
+```{r, chunk3.13a}
+HPDI(water3.ps.p, prob = 0.5)
+```
+
+## R code 3.14
+
+```{r, chunk3.14}
+p_grid[which.max(posterior)]
+```
+
+
+```{r, chunk3.14a}
+Water3 %>% arrange(-posterior) %>% head(1)
+```
+
+## R code 3.15
+
+```{r, chunk3.15}
+chainmode(samples, adj = 0.01)
+```
+
+```{r, chunk3.15a}
+chainmode(water3.ps.p, adj = 1)       # default amount of smoothing
+chainmode(water3.ps.p, adj = 0.1)     # less smoothing
+chainmode(water3.ps.p, adj = 0.01)    # lots less smoothing
+densityplot(water3.ps.p, adj = 1, plot.points = FALSE)
+densityplot(water3.ps.p, adj = 0.1, plot.points = FALSE, )
+densityplot(water3.ps.p, adj = 0.01, plot.points = FALSE)
+```
+
+## R code 3.16
+
+```{r, chunk3.16}
+mean(samples)
+median(samples)
+```
+
+
+```{r, chunk3.16a}
+favstats( ~ water3.ps.p)
+```
+
+## R code 3.17
+
+
+```{r, chunk3.17}
+sum(posterior * abs(0.5 - p_grid))
+```
+
+
+```{r, chunk3.17a}
+with(Water3, sum(posterior * abs(0.5 - p)))
+# We can compute this from the density too, but we need to adjust for the widths
+# of the intervals.
+with(Water3, sum(posterior.dens * abs(0.5 - p_grid) * ediff(p, pad.value = 0)))
+# easiest is to work from the posterior samples (small differences due to sampling)
+mean(abs(water3.ps.p - 0.5))
+```
+
+## R code 3.18
+
+
+```{r, chunk3.18}
+loss <-
+  sapply(p_grid, function(d)
+    sum(posterior * abs(d - p_grid)))
+```
+
+```{r, chunk3.18a}
+Water3 <- 
+  Water3 %>% 
+  mutate(loss = 
+           sapply(p_grid, function(d) {sum(posterior * abs(d - p_grid))})
+  )
+```
+
+## R code 3.19
+
+```{r, chunk3.19}
+p_grid[which.min(loss)]
+```
+
+```{r, chunk3.19a}
+with(Water3, p[which.min(loss)])
+Water3 %>% arrange(loss) %>% head(1)
+```
+
+## R code 3.20
+
+```{r, chunk3.20}
+dbinom(0:2, size = 2, prob = 0.7)
+```
+
+## R code 3.21
+
+```{r, chunk3.21}
+rbinom(1, size = 2, prob = 0.7)
+```
+
+## R code 3.22
+
+```{r, chunk3.22}
+rbinom(10, size = 2, prob = 0.7)
+```
+
+## R code 3.23
+
+```{r, chunk3.23}
+dummy_w <- rbinom(1e5, size = 2, prob = 0.7)
+table(dummy_w) / 1e5
+```
+
+```{r, chunk3.23a}
+tally( ~ rbinom(1e5, size = 2, prob = 0.7), format = "proportion")
+```
+
+## R code 3.24
+
+```{r, chunk3.24}
+dummy_w <- rbinom(1e5, size = 9, prob = 0.7)
+simplehist(dummy_w, xlab = "dummy water count")
+```
+
+
+```{r, chunk3.24a}
+histogram( ~ rbinom(1e5, size = 9, prob = 0.7), width = 1, xlab = "dummy water count")
+```
+
+```{r, chunk3.24b}
+dummy_w <- rbinom(1e5, size = 9, prob = 0.7)
+histogram( ~ dummy_w, xlab = "dummy water count", width = 1)
+```
+
+## R code 3.25
+
+```{r, chunk3.25}
+w <- rbinom(1e4, size = 9, prob = 0.6)
+```
+
+## R code 3.26
+
+```{r, chunk3.26}
+w <- rbinom(1e4, size = 9, prob = samples)
+```
+
+```{r, chunk3.26a}
+w <- rbinom(1e4, size = 9, prob = water9.ps.p)
+```
+
+## R code 3.27
+
+```{r, chunk3.27}
+p_grid <- seq(from = 0,
+              to = 1,
+              length.out = 1000)
+prior <- rep(1, 1000)
+likelihood <- dbinom(6, size = 9, prob = p_grid)
+posterior <- likelihood * prior
+posterior <- posterior / sum(posterior)
+set.seed(100)
+samples <-
+  sample(p_grid,
+         prob = posterior,
+         size = 1e4,
+         replace = TRUE)
+```
+
+```{r, chunk3.27a}
+Water9a <-
+  expand.grid(p = seq(from = 0, to = 1, length.out = 1000)) %>%
+  mutate( 
+    prior = 1,
+    likelihood = dbinom(6, size = 9, prob = p),
+    posterior = likelihood * prior,
+    posterior = posterior / sum(posterior),
+    posterior.dens = densify(p, posterior)
+  )
+set.seed(100)
+sampled_p <- 
+  with(Water9a, sample(p, prob = posterior, size = 1e4, replace = TRUE))
+```
+
+## R code 3.28
+
+
+```{r, chunk3.28}
+data(homeworkch3, package = "rethinking")
+# command above avoids us having to type it all in by hand:
+#
+# birth1 <- c(1, 0, 0, 0, 1, 1, 0, 1, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 1,
+#             0, 0, 0, 0, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 1, 0,
+#             1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 1, 1, 1,
+#             0, 1, 0, 1, 1, 1, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1)
+# 
+# birth2 <- c(0, 1, 0, 1, 0, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1,
+#             0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 0, 1, 1, 1, 1, 0, 0, 1, 0, 1, 1, 1, 1, 1,
+#             1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 0, 0, 0,
+#             0, 0, 1, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0)
+
+```
+
+```{r, chunk3.28a}
+# this puts the data into a data frame using a more transparent coding scheme
+BirthSex <-
+  data_frame(
+    first = c("F", "M") [1 + birth1],
+    second = c("F", "M")[1 + birth2]
+  ) %>% 
+  mutate(boys = (first == "M") + (second == "M"), girls = 2 - boys) 
+head(BirthSex)
+```
+
+## R code 3.29
+
+```{r, chunk3.29}
+library(rethinking)
+data(homeworkch3)
+```
+
+## R code 3.30
+
+```{r, chunk3.30}
+sum(birth1) + sum(birth2)
+```
+
+```{r, chunk3.30a}
+BirthSex %>% 
+  group_by(boys) %>%
+  summarise(n = n()) %>%
+  mutate(cumsum(n),  total.boys = boys * n,  cumsum(total.boys))
+```
+
+
+
