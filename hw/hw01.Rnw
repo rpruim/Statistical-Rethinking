@@ -1,0 +1,195 @@
+
+\documentclass{scrartcl}
+\usepackage[margin=.5in,top=.3in,bottom=.4in,includehead,includefoot]{geometry}
+
+%\parindent=0pt
+\parskip=3pt
+
+
+%\usepackage{mathpple}
+%\usepackage{fullpage}
+\usepackage{alltt}
+\usepackage{sfsect}
+\usepackage{longtable}
+
+\newif\ifanswers
+\answerstrue
+\answersfalse
+
+\def\blank#1{%
+\ifanswers
+\underline{{\large \sc #1}}
+\else
+\underline{\phantom{\Large \ \ \ \sc #1 \ \ \ }}
+\fi
+}
+
+\def\dd#1{\medskip\noindent\textbf{\large #1}}
+\def\be{\begin{enumerate}}
+\def\ee{\end{enumerate}}
+\def\bi{\begin{itemize}}
+\def\ei{\end{itemize}}
+
+\def\hwn#1{\relax}
+\def\hwn#1{\ {\tiny (#1)}}
+\def\hwn#1{$_{\mbox{\ \tiny #1}}$}
+\def\hwn#1{~{\tiny #1}}
+
+\usepackage[normalem]{ulem}
+\usepackage{ifthen}
+\usepackage{fancyhdr}
+\usepackage[colorlinks, urlcolor = blue]{hyperref}
+\include{myabbrev}
+
+
+\renewcommand{\labelenumi}{\textbf{\arabic{enumi}}}
+\newcommand{\myunderline}[1]{\uline{\phantom{Ay}#1\phantom{Ay}}}
+
+\newcommand{\helper}[2][\relax]{(#2)\hwn{#1}}
+\newcommand{\extra}[2][\relax]{[#2]\hwn{#1}}
+\newcommand{\opt}[2][\relax]{\{#2\}\hwn{#1}}
+\newcommand{\mand}[2][\relax]{{\bf \large #2}\hwn{#1}}
+\renewcommand{\arraystretch}{1.4}
+
+\begin{document}
+
+<<setup, include = FALSE>>=
+require(rethinking)
+require(mosaic)
+knitr::opts_chunk$set(
+  background = c(1, 1, 1)
+)
+@
+
+\pagestyle{fancy}
+
+\chead{}
+\lhead{Stat 341 -- Spring 2017}
+\rhead{\thepage/\pageref{end}}
+\lfoot{}
+\cfoot{Created \today\ --- See web site for most current version.}
+\rfoot{}
+
+\begin{center}
+\large
+\subsection*{Problem Sets Prior to Test~1}
+
+\end{center}
+
+
+\textit{Only turn in problems that are \textbf{not} bracketed.}
+Bracketed problems are additional problems you can look at.
+Round brackets indicate problems that may help you with problems that
+are assigned; square brackets are additional problems on material
+that you should know, but you are not required to write up solutions;
+curly brackets are truly optional and may contain extra nuggets that you
+will not be required to know but may be interested in.
+
+Additional assignments will be filled in over time.
+
+\bigskip
+
+\begin{center}
+
+\iftrue
+\begin{longtable}{|c|l|}
+  \hline
+  notation & meaning \\
+  \hline
+  unbracketed & assigned problem -- turn these in for grading \\
+  $()$ & helper/warm-up problem  \\
+  $[]$ & additional problems (you are responsible for content, but don't turn them in) \\
+  \{\} & covers optional material \\
+  \hline
+\end{longtable}
+\fi
+
+\bigskip
+
+
+
+\begin{longtable}{|c|c|c|p{4.3in}|}
+  \hline
+  PS & Due & Source & Problems \\
+  \hline\hline
+  \endhead
+  0 & Wed 2/1 & handout &
+  \begin{enumerate}
+	\item Fill out personal information form.
+	\item  Visit the course web page
+	  \begin{itemize}
+		\item \url{http://www.calvin.edu/~rpruim/courses/s341/S17/}
+	  \end{itemize}
+	\item Login to RStudio at \url{http://rstudio.calvin.edu}
+
+	  You should have recieved an email letting you know how to login
+	and how to change your password.
+  \end{enumerate}
+	\\
+	\hline
+  1 & Wed 2/1 &
+  Rethinking 2 &
+  \helper[cards]{2M4}
+  \mand[cards]{2M5}
+  \mand[cards]{2M7}
+	\\
+	\hline
+  2 & Mon 2/6 & Rethinking 2 &
+  \mand[conditional probability]{2E1--2E3}
+  \mand[pandas]{2H1--2H4}
+  \\
+  \hline
+  3 & Wed 2/8 & Rethinking 2 &
+  \helper[grid]{2M1}
+  \mand[grid]{2M2}
+  \mand[earth or moon]{2M3}
+  \\
+  & & Rethinking 3 &
+  \helper[posterior samples]{3E1--3E7}
+  \mand[globe]{3M1--3M3}
+  \extra{3M5}
+  \\
+  \hline
+  \newpage
+  4 & Mon 2/13 & Rethinking 3 &
+  \mand[births]{3H1--3H5}
+  \\
+  & & Rethinking 4 &
+  \mand[describing models]{4E1--4E2}
+  \mand[simulating prior]{4M1}
+  \mand[map]{4M2}
+  \\ & & &
+  I'm not particulary fond of how the author sets things up in 3H1--3H5.  Here's a better way:
+<<>>=
+# load the birth1 and birth2 data vectors
+data(homeworkch3, package = "rethinking")
+# put them into a data frame
+Birth <- data_frame(
+  first = birth1,
+  second = birth2
+)
+# tally up the counts
+tally( ~ first + second, data = Birth, margins = TRUE)
+# another way to summarize:
+Birth %>%
+  # group by family type
+  group_by(first, second) %>%
+  summarise(
+    # how many families of this type
+    families = n(),
+    # total boys in such families
+    boys = sum(first + second),
+    # total girls in such families
+    girls = sum(2 - first - second)
+  )
+@
+Take a look at the code I've posted online for a way to use something other than 0's and 1's.
+In any case, this summaries above are all you need to do the problems.
+\\
+  \hline
+\end{longtable}
+\end{center}
+
+\label{end}
+\end{document}
+
