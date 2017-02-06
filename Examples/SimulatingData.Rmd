@@ -1,0 +1,149 @@
+---
+title: "Simulating Data"
+author: "Statistical Rethinking, Chapter 3"
+date: "February, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.show = "hold")
+require(rethinking)
+require(mosaic)
+options(digits = 4)
+trellis.par.set(theme = col.mosaic())
+```
+
+## From Likelihood to data
+
+ * the likelihood function tells probablity of particular data, given paramter values (according to the model)
+ * d-functions in R give the probabilities
+ * r-functions in R do random sampling using these probabilities
+
+### Example: Sample of size 2
+
+**Setting:** data set of size 2 assuming a proportion of 0.7 and a binomial model.
+
+```{r}
+dbinom(0:2, size = 2, prob = 0.7)
+```
+
+```{r}
+x <- rbinom(1e5, size = 2, prob = 0.7)
+tally(x, format = "proportion")
+```
+
+### Example: Sample of size 9
+
+**Setting:** data set of size 9 assuming a proportion of 0.7 and a binomial model.
+```{r}
+dbinom(0:9, size = 9, prob = 0.7)
+```
+
+```{r}
+x <- rbinom(1e5, size = 9, prob = 0.7)
+tally(x, format = "proportion")
+```
+
+```{r, fig.keep = "last"}
+histogram( ~ x, width = 1, format = "prop")
+plotPoints(dbinom(0:9, size = 9, prob = 0.7) ~ 0:9, add = TRUE)
+```
+
+## Posterior + Likelihood -> Data
+
+The likelihood functions tells us how to simulate data if (a) we know the paramter 
+values and (b) the model is correct.  (The model won't every be "correct", but 
+comparing what the model things to other information can help us decide whether the
+model is "correct enough" for our purposes.)
+
+But we don't know the parameters, so we need to combine information from our 
+posterior distribution with the likelihood function.
+Doing this combines two sources of uncertainty:
+
+  1. Observation Uncertainty: Even if we knew $p$ exactly, there would be variability
+  from sample to sample.
+  
+  2. Uncertainty about $p$: We don't know $p$.  The posterior distribution represents
+  our uncertainty about $p$.
+
+Because the d- and r-functions in R are vectorized, this is easily done.
+
+Let's begin by redoing our grid sampling (with better names this time)
+
+```{r}
+Water9Grid <- 
+  expand.grid(p = seq(0, 1, by = 0.001)) %>%       # create grid of values for p
+  mutate(                                             # add additional variables
+    prior = 1,                              # uniform prior, value gets recycled
+    likelihood = dbinom(6, size = 9, prob = p),            # binomial probabilty
+    posterior_raw = prior * likelihood,                    # kernel of posterior
+    posterior1 = posterior_raw / sum(posterior_raw),        # easy normalization
+    posterior = posterior_raw / sum(posterior_raw) / 0.001 # fancy normalization
+  ) 
+head(Water9Grid)
+```
+
+  
+```{r, fig.keep = c(2,4)}
+Water9Post <- data_frame(
+  p =  with(Water9Grid, 
+            sample(p,                # choose one of Water9Grid values for p
+                   size = 1e5,       # 100,000 of these,
+                   prob = posterior, # choose more likely things more often
+                   replace = TRUE    # can choose the same p multiple times
+            ))
+)
+
+# Note how the poster sample looks just about like the posterior we created in the grid
+histogram( ~ p, data = Water9Post, width = 0.01)
+plotPoints( posterior ~ p, data = Water9Grid, type = "l", add = TRUE, lwd = 3)
+
+# another view
+densityplot( ~ p, data = Water9Post, plot.points = FALSE, col = "red")
+plotPoints( posterior ~ p, data = Water9Grid, type = "l", add = TRUE, lwd = 4, alpha = 0.4)
+```
+
+Now we can simulate water counts taking into account both types of uncertainty
+```{r}
+w <- rbinom(1e4, size = 9, prob = Water9Post$p)
+```
+
+and compare the results with our observed data.  In this case, things are looking very
+reasonable -- the data we observed seem to match what the model expects quite well.
+
+```{r}
+histogram( ~ w, width = 1)
+```
+
+
+
+### A fancier check
+
+Now lets determine how often a random data set switches between water and land.  (In
+the book example, there were 6 switches in 9 observations:  W L WWW L W L W.
+
+Do do this, we need to simulate individual observations, not just the count of water.
+Here is one way to do that.
+
+```{r}
+Dummy_data <- 
+  do(1e4) * rbinom(9, size = 1, prob = sample(Water9Post$p, 1))
+head(Dummy_data)
+```
+
+```{r}
+switches <- apply(as.matrix(Dummy_data), 1, function(x) sum(abs(diff(x))))
+histogram( ~ switches, width = 1)
+```
+
+By comparision, our data had quite a few swithces -- not impossibly many, but more than
+we might have expected.
+
+## Big Idea
+
+The posterior distribution is computed assuming that the 
+prior and likelihood are correct, so the posterior expresses
+the "model's view of the world".  But we should get in the habbit
+of doing some checking to see that the model's view of the world
+agrees with our own reasonably well.  If it does not, we may need
+to adjust our model.
