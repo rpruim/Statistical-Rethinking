@@ -106,8 +106,6 @@ Additional assignments will be filled in over time.
 
 \bigskip
 
-
-
 \begin{longtable}{|c|c|c|p{4.3in}|}
   \hline
   PS & Due & Source & Problems \\
