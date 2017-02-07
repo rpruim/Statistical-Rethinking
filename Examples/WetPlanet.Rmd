@@ -375,7 +375,7 @@ histogram( ~ posterior_sample,
            fit = "kde", dlwd = 2,   # add density plot to histogram with thicker line
            width = 0.02,            # histogram binwidth
            v = HPDI(posterior_sample), 
-           h = with(BinomGrid, posterior[round(p - HPDI(posterior_sample), 3) == 0])
+           h = with(BinomGrid, posterior[round(p - HPDI(posterior_sample)[1], 3) == 0])
 )
 ```
 
