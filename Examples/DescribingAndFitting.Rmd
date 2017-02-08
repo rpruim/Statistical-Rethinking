@@ -1,0 +1,292 @@
+---
+title: "Describing and Fitting Bayesian Models"
+author: "R Pruim"
+date: "February 8, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(rethinking)
+require(mosaic)
+```
+
+
+## The Howell data
+
+Nancy Howell collected data on !Kung San, one of the most famous foraging populations
+of the 20th century (in part because of her work and the work of other antroplogists
+who studied them).
+
+### Let's use only adults 
+```{r}
+HowellAdults <- 
+  Howell1 %>% filter(age >= 18)
+```
+
+## Fitting a normal model
+
+### The basic model
+
+ * $h_i \sim Norm(\mu, \sigma) (heights are normally distributed)
+ * $\mu \sim Norm(178, 20)$  (based on textbook author's hieght)
+ * $\sigma \sim Unif(0, 50)$  (positive, but not known very well)
+
+### Fitting the model (Grid Method)
+
+We need to do some tricks to make the compuations work.  The main trick is to work
+on the log scale.  A secondary trick is to rescale the raw posterior to avoid getting
+values that are too small to add well.
+
+But firs we need to create a function that allows us to use all of the data with
+each of several values of `mu` and `sigma`.
+
+```{r, chunk4.14a}
+llnorm <- function(x, mu, sigma) { 
+  sum(dnorm(x, mean = mu, sd = sigma, log = TRUE))
+}
+# use all of x for each mu-sigma combo
+llnorm <- Vectorize(llnorm, c("mu", "sigma"))
+```
+
+Now we can fit the model.
+
+```{r, chunk4.14b}
+HowellAdultsGrid <-
+  expand.grid(
+    mu = seq(from = 140, to = 160, by = 0.1),
+    sigma = seq(from = 4, to = 9, by = 0.05)) %>% 
+  mutate(
+    logprior = 
+      dnorm(mu, 178, 20, log = TRUE) +
+      dunif(sigma, 0, 50, log = TRUE),
+    loglik = llnorm(HowellAdults$height, mu, sigma),
+    posterior.log = logprior + loglik,
+    posterior.raw = exp(posterior.log - max(posterior.log)),
+    posterior = posterior.raw / sum(posterior.raw)
+  )
+```
+
+
+```{r, chunk4.15a}
+contourplot(posterior ~ mu + sigma, data = HowellAdultsGrid)
+
+```
+
+```{r, chunk4.16a}
+levelplot(posterior ~ mu + sigma, data = HowellAdultsGrid, contour = TRUE)
+levelplot(posterior.log ~ mu + sigma, data = HowellAdultsGrid, contour = TRUE)
+```
+
+```{r, chunk4.17a}
+HowellAdultsPost <- 
+  sample(HowellAdultsGrid, size = 1e4, replace = TRUE, 
+         prob = HowellAdultsGrid$posterior)
+```
+
+
+```{r, chunk4.18a}
+xyplot(sigma ~  mu, data = HowellAdultsPost,
+  cex = 0.5,
+  pch = 16,
+  col = col.alpha(rangi2, 0.1)
+)
+
+ggplot(HowellAdultsPost, aes(x = mu, y = sigma)) +
+  geom_point(alpha = 0.2) +
+  geom_density2d() 
+       
+ggplot(HowellAdultsPost, aes(x = mu, y = sigma)) +
+  geom_hex() 
+       
+```
+
+```{r, chunk4.19a}
+densityplot( ~ mu, data = HowellAdultsPost)
+densityplot( ~ sigma, data = HowellAdultsPost)
+```
+
+
+
+```{r, chunk4.20a}
+HPDI(HowellAdultsPost$mu)
+HPDI(HowellAdultsPost$sigma)
+```
+
+
+## Let's do it again with a smaller sample (n = 20)
+
+
+```{r, chunk4.22a}
+Howell20 <- sample(HowellAdults, 20)
+                
+Howell20Grid <-
+  expand.grid(
+    mu = seq(from = 140, to = 160, by = 0.1),
+    sigma = seq(from = 2, to = 12, by = 0.1)) %>% 
+  mutate(
+    logprior = 
+      dnorm(mu, 178, 20, log = TRUE) +
+      dunif(sigma, 0, 50, log = TRUE),
+    loglik = llnorm(Howell20$height, mu, sigma),  # llnorm defined above
+    posterior.log = logprior + loglik,
+    posterior.raw = exp(posterior.log - max(posterior.log)),
+    posterior = posterior.raw / sum(posterior.raw)
+  )
+
+Howell20Posterior <- 
+  sample(Howell20Grid, size = 1e4,
+         replace = TRUE, 
+         prob = Howell20Grid$posterior)
+
+xyplot(sigma ~ mu, data = Howell20Posterior,
+  cex = 0.5, alpha = 0.1,
+  xlab = expression(mu), ylab = expression(sigma),
+  pch = 16
+)
+
+ggplot(Howell20Posterior, aes(x = mu, y = sigma)) +
+  geom_point(alpha = 0.1) + 
+  geom_density2d() +
+  labs(x = expression(mu), y = expression(sigma))
+```
+
+
+
+```{r, chunk4.23a}
+densityplot( ~ sigma, data = Howell20Posterior)
+histogram( ~ sigma, data = Howell20Posterior, width = 0.1, fit = "normal")
+xqqmath( ~ sigma, data = Howell20Posterior)
+```
+
+
+## Using map() to fit a Bayesian model
+
+
+```{r, chunk4.25}
+flist <- 
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu ~ dnorm(178, 20),
+    sigma ~ dunif(0, 50))
+```
+
+```{r, chunk4.26a}
+m4.1 <- map(flist, data = HowellAdults)
+```
+
+
+```{r, chunk4.27}
+precis(m4.1)      # precis means summary
+```
+
+
+Sometimes it is handy to provide starting values for the search.  The default is to
+randomly sample from the priors.  But we could use the mean and standard deviation
+from the data instead.
+
+```{r, chunk4.28a}
+start <- 
+  list(
+    mu  = mean( ~ height, data = HowellAdults),
+    sigma = sd( ~ height, data = HowellAdults))
+
+m4.1a <- 
+  map(
+    alist(height ~ dnorm(mu, sigma),
+              mu ~ dnorm(178, 0.1),
+           sigma ~ dunif(0, 50)),
+           start = start,
+           data = HowellAdults)
+```
+
+## Using a highly informative prior
+
+If we reduce the standard deviation of the prior for $\mu$, the prior has a much 
+bigger impact on the posterior.
+
+```{r, chunk4.29a}
+m4.2 <- map(alist(height ~ dnorm(mu, sigma),
+                      mu ~ dnorm(178, 0.1),
+                   sigma ~ dunif(0, 50)),
+            data = HowellAdults)
+precis(m4.2)
+mean( ~ height, data = HowellAdults)
+```
+
+
+### Variance-Covariance
+
+The quadratic approximation is based on using a multivariate normal distribution
+to approxiamte the posterior.  
+
+```{r, chunk4.30}
+vcov(m4.1)
+```
+
+
+```{r, chunk4.31}
+diag(vcov(m4.1))
+cov2cor(vcov(m4.1))
+```
+
+## Extracting posterior samples from a map model
+
+```{r, chunk4.32}
+Post <- extract.samples(m4.1, n = 1e4)
+head(Post)
+```
+
+```{r, chunk4.33}
+precis(Post)
+```
+
+
+## Improving the approximation 
+
+The posterior distribution for $\sigma$ is not normal.  (This was especially clear 
+when we looked a small sample using the grid method.)
+
+The posterior for $\log(\sigma)$ is better approximated by a normal distribution.
+We can fit that model by adding in a transformation of the parameter.
+
+
+```{r, chunk4.35a}
+m4.1_logsigma <- 
+  map(
+    alist(
+      height ~ dnorm(mu, exp(log_sigma)),
+      mu ~ dnorm(178, 20),
+      log_sigma ~ dnorm(2, 10)
+    ), data = HowellAdults)
+```
+
+
+```{r, chunk4.36a}
+HowellAdultsPost <- 
+  extract.samples(m4.1_logsigma) %>%
+  mutate(sigma = exp(log_sigma))
+```
+
+## Adding in a Predictor: sex
+
+```{r}
+howellMaleModel <- 
+  map(
+    alist(
+      height ~ dnorm(mu, sigma),
+         mu <- a + b * male,
+           a ~ dnorm(160, 20),
+           b ~ dnorm(25, 15),
+       sigma ~ dunif(0, 50)
+    ),
+    data = HowellAdults)
+```
+
+```{r}
+HowellMalePost <- 
+  howellMaleModel %>% extract.samples()
+head(HowellMalePost)
+precis(HowellMalePost)
+mean(height ~ male, data = HowellAdults)
+```
