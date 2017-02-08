@@ -105,7 +105,7 @@ plotPoints( posterior ~ p, data = Water9Grid, type = "l", add = TRUE, lwd = 4, a
 
 Now we can simulate water counts taking into account both types of uncertainty
 ```{r}
-w <- rbinom(1e4, size = 9, prob = Water9Post$p)
+w <- rbinom(1e5, size = 9, prob = Water9Post$p)
 ```
 
 and compare the results with our observed data.  In this case, things are looking very
