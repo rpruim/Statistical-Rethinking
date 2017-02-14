@@ -28,7 +28,7 @@ HowellAdults <-
 
 ### The basic model
 
- * $h_i \sim Norm(\mu, \sigma) (heights are normally distributed)
+ * $h_i \sim Norm(\mu, \sigma)$ (heights are normally distributed)
  * $\mu \sim Norm(178, 20)$  (based on textbook author's hieght)
  * $\sigma \sim Unif(0, 50)$  (positive, but not known very well)
 
@@ -54,8 +54,8 @@ Now we can fit the model.
 ```{r, chunk4.14b}
 HowellAdultsGrid <-
   expand.grid(
-    mu = seq(from = 140, to = 160, by = 0.1),
-    sigma = seq(from = 4, to = 9, by = 0.05)) %>% 
+    mu = seq(from = 178 - 40, to = 178 + 40, by = 0.1),
+    sigma = seq(from = 0.2, to = 50, by = 0.1)) %>%  # be sure to avoid 0 here!
   mutate(
     logprior = 
       dnorm(mu, 178, 20, log = TRUE) +
@@ -69,13 +69,14 @@ HowellAdultsGrid <-
 
 
 ```{r, chunk4.15a}
-contourplot(posterior ~ mu + sigma, data = HowellAdultsGrid)
+contourplot(posterior ~ mu + sigma, data = HowellAdultsGrid,
+             xlim = c(150, 160), ylim = c(5, 10)) 
 
 ```
 
 ```{r, chunk4.16a}
-levelplot(posterior ~ mu + sigma, data = HowellAdultsGrid, contour = TRUE)
-levelplot(posterior.log ~ mu + sigma, data = HowellAdultsGrid, contour = TRUE)
+levelplot(posterior ~ mu + sigma, data = HowellAdultsGrid, contour = TRUE, 
+          xlim = c(150, 160), ylim = c(5, 10))
 ```
 
 ```{r, chunk4.17a}
@@ -97,7 +98,7 @@ ggplot(HowellAdultsPost, aes(x = mu, y = sigma)) +
   geom_density2d() 
        
 ggplot(HowellAdultsPost, aes(x = mu, y = sigma)) +
-  geom_hex() 
+  geom_hex(bins = 20) 
        
 ```
 
@@ -122,8 +123,8 @@ Howell20 <- sample(HowellAdults, 20)
                 
 Howell20Grid <-
   expand.grid(
-    mu = seq(from = 140, to = 160, by = 0.1),
-    sigma = seq(from = 2, to = 12, by = 0.1)) %>% 
+    mu = seq(from = 130, to = 170, by = 0.1),
+    sigma = seq(from = 0.2, to = 50, by = 0.1)) %>% 
   mutate(
     logprior = 
       dnorm(mu, 178, 20, log = TRUE) +
