@@ -6,7 +6,7 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, cache = TRUE)
 require(rethinking)
 require(mosaic)
 ```
@@ -135,18 +135,18 @@ Howell20Grid <-
     posterior = posterior.raw / sum(posterior.raw)
   )
 
-Howell20Posterior <- 
+Howell20.post <- 
   sample(Howell20Grid, size = 1e4,
          replace = TRUE, 
          prob = Howell20Grid$posterior)
 
-xyplot(sigma ~ mu, data = Howell20Posterior,
+xyplot(sigma ~ mu, data = Howell20.post,
   cex = 0.5, alpha = 0.1,
   xlab = expression(mu), ylab = expression(sigma),
   pch = 16
 )
 
-ggplot(Howell20Posterior, aes(x = mu, y = sigma)) +
+ggplot(Howell20.post, aes(x = mu, y = sigma)) +
   geom_point(alpha = 0.1) + 
   geom_density2d() +
   labs(x = expression(mu), y = expression(sigma))
@@ -155,9 +155,9 @@ ggplot(Howell20Posterior, aes(x = mu, y = sigma)) +
 
 
 ```{r, chunk4.23a}
-densityplot( ~ sigma, data = Howell20Posterior)
-histogram( ~ sigma, data = Howell20Posterior, width = 0.1, fit = "normal")
-xqqmath( ~ sigma, data = Howell20Posterior)
+densityplot( ~ sigma, data = Howell20.post)
+histogram( ~ sigma, data = Howell20.post, width = 0.1, fit = "normal")
+xqqmath( ~ sigma, data = Howell20.post)
 ```
 
 
@@ -179,6 +179,8 @@ m4.1 <- map(flist, data = HowellAdults)
 
 ```{r, chunk4.27}
 precis(m4.1)      # precis means summary
+vcov(m4.1)
+sqrt(diag(vcov(m4.1)))
 ```
 
 
@@ -222,36 +224,47 @@ The quadratic approximation is based on using a multivariate normal distribution
 to approxiamte the posterior.  
 
 ```{r, chunk4.30}
+precis(m4.1)
 vcov(m4.1)
 ```
 
 
 ```{r, chunk4.31}
 diag(vcov(m4.1))
+sqrt(diag(vcov(m4.1)))
 cov2cor(vcov(m4.1))
 ```
 
 ## Extracting posterior samples from a map model
 
+We could use the information from `vcov()` and `rmvnorm()` or `mvrnorm()` to create posterior
+samples.  But `extract.samples()` does this all for us.
+
 ```{r, chunk4.32}
-Post <- extract.samples(m4.1, n = 1e4)
-head(Post)
+HowellAdults.post <- extract.samples(m4.1, n = 1e4)
+head(HowellAdults.post)
+
+histogram(~sigma, data = HowellAdults.post, n = 50, fit =  "normal")
 ```
 
+`precis()` uses the posterior samples to provide a summary of each parameter.
 ```{r, chunk4.33}
-precis(Post)
+precis(HowellAdults.post)
 ```
 
 
 ## Improving the approximation 
 
-The posterior distribution for $\sigma$ is not normal.  (This was especially clear 
-when we looked a small sample using the grid method.)
+The posterior distribution for $\sigma$ is not normal.  
+(This was especially clear when we looked a small sample using the grid method.  For 
+larger samples, it's pretty close to normal.)
 
 The posterior for $\log(\sigma)$ is better approximated by a normal distribution.
-We can fit that model by adding in a transformation of the parameter.
+We can fit that model by adding in a transformation of the parameter.  This also 
+removes he need to artificially cut of the range of possible values for $\sigma$
+(using a uniform distribution, for example).
 
-
+Our small sample shows the effect more clearly.
 ```{r, chunk4.35a}
 m4.1_logsigma <- 
   map(
@@ -259,14 +272,19 @@ m4.1_logsigma <-
       height ~ dnorm(mu, exp(log_sigma)),
       mu ~ dnorm(178, 20),
       log_sigma ~ dnorm(2, 10)
-    ), data = HowellAdults)
+    ), data = Howell20)
 ```
 
 
 ```{r, chunk4.36a}
-HowellAdultsPost <- 
+HowellAdults.post2 <- 
   extract.samples(m4.1_logsigma) %>%
   mutate(sigma = exp(log_sigma))
+
+histogram( ~ log_sigma, data = HowellAdults.post2, n = 50, fit =  "normal")
+qqmath( ~ log_sigma, data = HowellAdults.post2)
+histogram( ~ sigma, data = HowellAdults.post2, n = 50, fit =  "normal")
+qqmath( ~ sigma, data = HowellAdults.post2)
 ```
 
 ## Adding in a Predictor: sex
@@ -290,4 +308,78 @@ HowellMalePost <-
 head(HowellMalePost)
 precis(HowellMalePost)
 mean(height ~ male, data = HowellAdults)
+```
+
+
+## Birth order and sex
+
+This is a brief interlude to look at the data used in the problems at the end of Chapter 3.
+
+### Looking at the data
+
+```{r}
+# load the birth1 and birth2 data vectors
+data(homeworkch3, package = "rethinking")
+# put them into a data frame
+Birth <- data_frame(
+  first = birth1,
+  second = birth2
+)
+# tally up the counts
+tally( ~ first + second, data = Birth, margins = TRUE)
+# How many boys (both births)?
+30 + 39 + 21 * 2
+```
+
+### Fitting the model using map()
+
+For your homework, you were supposed to use the grid method.  Here, I'm using `map()` instead.
+
+```{r}
+BirthSex.map <- 
+  map(
+    alist(
+      boys ~ dbinom(size = 200, prob = p),
+      p ~ dunif(0, 1)
+    ),
+    data = list(boys = 111)
+  )
+ 
+BirthSex.post <-
+  extract.samples(BirthSex.map, 1e5)
+```
+
+Once you have created posterior samples, things are the same either way.  Since we are using 
+`map()` here, the posterior distribution of `p` will be normal -- that's an assumption behind 
+how `map()` works.  So this is neither informative nor surprising.  (You could see how well a 
+normal distribution fits the posterior that results from the grid method.  If the fit is poor,
+then `map()` probably isn't a good choice for this situation.)
+
+```{r}
+histogram( ~ p, data = BirthSex.post, width = 0.005, fit = "normal")
+qqmath( ~ p, data = BirthSex.post)
+```
+
+The posterior samples can be used to check the model in various ways.  For example,
+since the model assumes that all the births are independent and have the same probability
+of being male, any subset of the births should look reasonable under this assumption.
+
+The homework asks you to check a few things.  Here is another.  Let's consider whether 
+21 is a reasonable number of families to have two boys.  If $p$ is the true proption of 
+boys, and births are independent, then $p^2$ should be the proportion of families with
+two boys.
+
+
+For example, let's consider
+```{r}
+# samples of size 100 (100 families)
+histogram( ~ rbinom(1e5, size = 100, prob = (BirthSex.post$p)^2), 
+           width = 1, v = 21)
+```
+
+The observed value of 21 is a little low, but not extremely so -- enough to cause us to pause, 
+but not enough to force us to throw out the model (at least not by itself).
+
+```{r}
+prop( ~ (rbinom(1e5, size = 100, prob = (BirthSex.post$p)^2) <= 21))
 ```
