@@ -187,7 +187,15 @@ Take a look at the code I've posted online for a way to use something other than
 In any case, this summaries above are all you need to do the problems.
 \\
   \hline
-  5 & Fri 2/17 & Rethinking 4 & TBA
+  5 & Fri 2/17 & Rethinking 4 &
+  \mand{4E4--4E5}
+  \mand{4M3--4M6}
+\\
+  \hline
+  6 & Mon 2/20 & Rethinking 4 &
+  \mand{4H1}
+  \mand[Howell kids]{4H2}
+  \mand[log-kg]{4H3}
   \\
   \hline
 \end{longtable}
