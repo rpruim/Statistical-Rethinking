@@ -569,7 +569,9 @@ m4.5.pred <-
 
 ```{r, chunk4.69a, opts.label = "updated"}
 xyplot(sim.hi + mu.hi + mu.mean + mu.lo + sim.lo ~ weight.s, 
-       data = m4.5.pred,  type = "l", auto.key = list(lines = TRUE, points = FALSE))
+       data = m4.5.pred, type = "l", 
+       ylab = "height",
+       auto.key = list(lines = TRUE, points = FALSE))
 plotPoints(height ~ weight.s, data = Howell1, col = rangi2, alpha = 0.5, add = TRUE)
 ```
 ```{r, chunk4.69b, opts.label = "updated"}
