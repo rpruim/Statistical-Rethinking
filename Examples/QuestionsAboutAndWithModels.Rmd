@@ -168,9 +168,10 @@ make this easier.  Here are three ways to overlay the fitted line on top of the 
 
 ```{r, chunk4.45a, opts.label = "updated"}
 # lattice with custom panel function to overlay multiple things
+coef(m4.3)
 xyplot(height ~ weight, data = HowellAdults,
        panel = function(x, y, ...) {
-         panel.abline(a = coef(m4.3)["a"], b = coef(m4.3)["b"])
+         panel.abline(coef(m4.3))
          panel.xyplot(x, y, ...)
        }
 )
