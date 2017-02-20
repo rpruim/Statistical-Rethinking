@@ -1,0 +1,1035 @@
+---
+title: "Statistical Rethinking (Code)"
+author: "Chapter 5"
+date: "February, 2017"
+output:
+  html_document: 
+    fig_height: 3.5
+  pdf_document: 
+    fig_height: 3.5
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(mosaic)
+require(rethinking)
+theme_set(theme_minimal())
+trellis.par.set(theme = theme.mosaic())
+set.seed(12345)
+```
+
+Code from *Statistical Rethinking* modified by R Pruim is shown below.  Differences to the oringal include:
+
+  * a preference for putting data into containers (data frames, mostly), rather than working with lose vectors.
+  * use of `lattice` and `ggplot2` rather than base graphics
+  * use of `tidyverse` for data transformation
+  * better (in my opinion) naming conventions
+
+
+### Waffle Houses and Divorce
+
+The following model suggests that divorce rates are higher
+in states with more Waffle Houses (per capita).  
+
+```{r}
+m5.0 <- map(
+  alist(
+    Divorce ~ dnorm(mu, sigma),
+    mu <- a + bW * WaffleHouses,
+    a ~ dnorm(10, 10),
+    bW ~ dnorm(0, 1),
+    sigma ~ dunif(0, 10)
+  ),
+  data = WaffleDivorce
+)
+precis(m5.0, digits = 3)
+xyplot(
+  Divorce ~ WaffleHouses, data = WaffleDivorce,
+  panel = function(x, y, ...) {
+    panel.xyplot(x, y, ...)
+    panel.abline(coef(m5.0))
+  }
+)
+ggplot(WaffleDivorce, aes(x = WaffleHouses)) +
+  geom_point(aes(y = Divorce, text = Loc), color = rangi2) +
+  geom_abline(intercept = coef(m5.0)["a"], slope = coef(m5.0)["bW"]) 
+plotly::ggplotly()
+```
+
+
+### R code 5.1
+
+```{r, chunk5.1}
+# load data
+library(rethinking)
+data(WaffleDivorce)
+
+# standardize predictor
+WaffleDivorce <- 
+  WaffleDivorce %>% 
+  mutate(MedianAgeMarriage.s = zscore(MedianAgeMarriage))
+
+# fit model
+m5.1 <- map(
+  alist(
+    Divorce ~ dnorm(mu, sigma),
+    mu <- a + bA * MedianAgeMarriage.s,
+    a ~ dnorm(10, 10),
+    bA ~ dnorm(0, 1),
+    sigma ~ dunif(0, 10)
+  ),
+  data = WaffleDivorce
+)
+```
+
+### R code 5.2
+
+```{r, chunk5.2}
+# compute percentile interval of mean
+m5.1.pred <-
+  data.frame(
+    MedianAgeMarriage.s = seq(from = -3, to = 3.5, length.out = 30)
+  )
+mu <- link(m5.1, data = m5.1.pred)
+m5.1.pred <- 
+  m5.1.pred %>% 
+  mutate(
+    mu.PIlo = apply(mu, 2, PI)[1,],
+    mu.PIhi = apply(mu, 2, PI)[2,]
+  )
+
+# plot it all
+xyplot(Divorce ~ MedianAgeMarriage.s, data = WaffleDivorce, col = rangi2,
+       panel = function(x, y, ...) {
+         panel.xyplot(x, y, ...)
+         panel.abline(coef(m5.1), col = "red")
+       }
+)
+# shade(mu.PI, MAM.seq)
+
+```
+
+```{r}
+# plot it all
+ggplot(WaffleDivorce) +
+  geom_point(aes(y = Divorce,  x = MedianAgeMarriage.s), col = rangi2) +
+  geom_abline(intercept = coef(m5.1)["a"], slope = coef(m5.1)["bA"], 
+              col = "red", alpha = 0.5) +
+  geom_ribbon(data = m5.1.pred, fill = "gray50", alpha = 0.3,
+              aes(x = MedianAgeMarriage.s, ymin = mu.PIlo, ymax = mu.PIhi)) +
+  geom_text(aes(x = MedianAgeMarriage.s, y = Divorce, label = Loc), size = 3, alpha = 0.5)
+
+```
+
+### R code 5.3
+
+```{r, chunk5.3}
+WaffleDivorce <-
+  WaffleDivorce %>% 
+  mutate(Marriage.s = zscore(Marriage))
+
+m5.2 <- map(
+  alist(
+    Divorce ~ dnorm(mu, sigma),
+    mu <- a + bR * Marriage.s,
+    a ~ dnorm(10, 10),
+    bR ~ dnorm(0, 1),
+    sigma ~ dunif(0, 10)
+  ),
+  data = WaffleDivorce
+)
+```
+
+### R code 5.4
+
+```{r, chunk5.4}
+m5.3 <- map(
+  alist(
+    Divorce ~ dnorm(mu, sigma),
+    mu <- a + bR * Marriage.s + bA * MedianAgeMarriage.s,
+    a ~ dnorm(10, 10),
+    bR ~ dnorm(0, 1),
+    bA ~ dnorm(0, 1),
+    sigma ~ dunif(0, 10)
+  ),
+  data = WaffleDivorce
+)
+precis(m5.3)
+
+```
+
+### R code 5.5
+
+```{r, chunk5.5}
+plot(precis(m5.3))
+```
+
+### R code 5.6
+
+```{r, chunk5.6}
+m5.4 <- map(
+  alist(
+    Marriage.s ~ dnorm(mu, sigma),
+    mu <- a + b * MedianAgeMarriage.s,
+    a ~ dnorm(0, 10),
+    b ~ dnorm(0, 1),
+    sigma ~ dunif(0, 10)
+  ),
+  data = WaffleDivorce
+)
+
+```
+
+### R code 5.7
+
+```{r, chunk5.7}
+# compute expected value at MAP, for each State and residual
+WaffleDivorce <-
+  WaffleDivorce %>% 
+  mutate(
+    mu.m5.4 = coef(m5.4)['a'] + coef(m5.4)['b'] * MedianAgeMarriage.s,
+    resid.m5.4 = Marriage.s - mu.m5.4
+  )
+```
+
+### R code 5.8
+
+```{r, chunk5.8}
+xyplot(Marriage.s ~ MedianAgeMarriage.s, data = WaffleDivorce, col = rangi2,
+       panel = function(x,y, ...){
+         panel.abline(coef(m5.4))
+         panel.segments(
+           x0 = x, x1 = x,
+           y0 = WaffleDivorce$mu.m5.4, y1 = WaffleDivorce$Marriage.s,
+           col = "red", alpha = 0.5
+         )
+         panel.xyplot(x, y, pch = 16, ...)
+       }
+)
+```
+```{r, chunk5.8g}
+ggplot(WaffleDivorce, aes(x = MedianAgeMarriage.s)) +
+  geom_segment(aes(xend = MedianAgeMarriage.s, y = mu.m5.4, yend = Marriage.s), 
+               color = "red", alpha = 0.5) +
+  geom_abline(aes(intercept = coef(m5.4)["a"], slope = coef(m5.4)["b"])) + 
+  geom_point(aes(y = Marriage.s), col = rangi2) 
+```
+
+### R code 5.9
+
+```{r, chunk5.9}
+# prepare new counterfactual data
+m5.3.pred <- 
+  data_frame(
+    Marriage.s = seq(from = -3, to = 3, by = 0.25),
+    MedianAgeMarriage.s = mean(WaffleDivorce$MedianAgeMarriage.s)
+  )
+
+# compute counterfactual mean divorce (mu)
+mu <- link(m5.3, data = m5.3.pred)
+# simulate counterfactual divorce outcomes
+R.sim <- sim(m5.3, data = m5.3.pred, n = 1e4)
+
+m5.3.pred <-
+  m5.3.pred %>% 
+  mutate(
+     mu.mean = apply(mu, 2, mean),
+     mu.PIlo =  apply(mu, 2, PI)[1,],
+     mu.PIhi =  apply(mu, 2, PI)[2,],
+     R.PIlo = apply(R.sim, 2, PI)[1,],
+     R.PIhi = apply(R.sim, 2, PI)[2,]
+  )
+xyplot(R.PIhi + mu.PIhi + mu.mean + mu.PIlo + R.PIlo ~ Marriage.s, 
+       data = m5.3.pred, type = "l",
+       ylab = "Divorce rate",
+       col = c("red", "navy", "gray50", "navy", "red"),
+       sub = "MedianAgeMarriage.s = 0")
+```
+
+```{r, 5.9g}
+ggplot(m5.3.pred, aes(x = Marriage.s)) +
+  geom_line(aes(y = mu.mean, color = "gray50")) +
+  geom_line(aes(y = mu.mean, color = "gray50")) +
+  geom_ribbon(aes(ymin = mu.PIlo, ymax = mu.PIhi), fill = "gray50", alpha = 0.2) +
+  geom_ribbon(aes(ymin = R.PIlo, ymax = R.PIhi), fill = "gray50", alpha = 0.2) +
+  labs( y = "Divorce rate", caption = "Marriage.s = 0")
+```
+
+
+### R code 5.10
+
+```{r, chunk5.10}
+m5.3.pred2 <-
+  data_frame(
+    MedianAgeMarriage.s =  seq(from = -3, to = 3, by = 0.25),
+    Marriage.s = mean(WaffleDivorce$Marriage.s)
+    )
+
+mu <- link(m5.3, data = m5.3.pred2, n = 1e4)
+A.sim <- sim(m5.3, data = m5.3.pred2, n = 1e4)
+
+m5.3.pred2 <-
+  m5.3.pred2 %>%
+  mutate(
+    mu.mean = apply(mu, 2, mean),
+    mu.PIlo = apply(mu, 2, PI)[1,],
+    mu.PIhi = apply(mu, 2, PI)[2,],
+    A.PIlo = apply(A.sim, 2, PI)[1,],
+    A.PIhi = apply(A.sim, 2, PI)[2,]
+  )
+
+
+xyplot(A.PIhi + mu.PIhi + mu.mean + mu.PIlo + A.PIlo ~ MedianAgeMarriage.s,
+       data = m5.3.pred2, type = "l",
+       ylab = "Divorce rate",
+       col = c("red", "navy", "gray50", "navy", "red"),
+       sub = "Marriage.s = 0")
+```
+
+```{r, 5.10g}
+ggplot(m5.3.pred2, aes(x = MedianAgeMarriage.s)) +
+  geom_line(aes(y = mu.mean), color = "red") +
+  geom_ribbon(aes(ymin = mu.PIlo, ymax = mu.PIhi), fill = "gray50", alpha = 0.2) +
+  geom_ribbon(aes(ymin = A.PIlo, ymax = A.PIhi), fill = "gray50", alpha = 0.2) +
+  labs( y = "Divorce rate", caption = "Marriage.s = 0")
+```
+
+### R code 5.11
+
+```{r, chunk5.11}
+# call link without specifying new data
+# so it uses original data
+divorce.mu  <- link(m5.3)
+# simulate observations
+# again no new data, so uses original data
+divorce.sim <- sim(m5.3, n = 1e4)
+
+# summarize samples across cases
+m5.3.pred3 <-
+  WaffleDivorce %>% 
+  mutate(
+    mu.mean = apply(divorce.mu, 2, mean),
+    mu.PIlo = apply(divorce.mu, 2, PI)[1,],
+    mu.PIhi = apply(divorce.mu, 2, PI)[2,],
+    divorce.PIlo = apply(divorce.sim, 2, PI)[1,],
+    divorce.PIhi = apply(divorce.sim, 2, PI)[2,]
+  )
+```
+
+### R code 5.12
+
+```{r, chunk5.12}
+xyplot(
+  mu.mean ~ Divorce,
+  data = m5.3.pred3,
+  col = rangi2,
+  # ylim = range(mu.PI),
+  xlab = "Observed divorce",
+  ylab = "Predicted divorce",
+  panel = function(x, y, ..., y0, y1) {
+    panel.xyplot(x, y, ...)
+    panel.abline(a = 0, b = 1)
+    with(m5.3.pred3, panel.segments(x0 = x, x1 = x, y0 = mu.PIlo, y1 = mu.PIhi))
+  }
+)
+```
+
+
+```{r, chunk5.12g}
+ggplot(data = m5.3.pred3, 
+       aes(x = Divorce, y = mu.mean, ymin = mu.PIlo, ymax = mu.PIhi, text = Loc)) +
+  geom_pointrange(col = rangi2) +
+  geom_abline(slope = 1, intercept = 0) +
+  labs(x =  "Observed divorce", y = "Predicted divorce")
+```
+
+### R code 5.13
+
+```{r, chunk5.13}
+# make most recent ggplot interactive
+# adding text to the geom_point() above makes it available on hover here.
+plotly::ggplotly()
+```
+
+### R code 5.14
+
+```{r, chunk5.14}
+# compute residuals
+m5.3.pred3 <-
+  m5.3.pred3 %>% 
+  mutate(divorce.resid = Divorce - mu.mean,
+         state = reorder(Loc, divorce.resid))
+
+ggplot(m5.3.pred3) +
+  geom_pointrange(
+    col = "gray50", alpha = 0.5, size = 0.8,
+    aes(x = state,
+        y = divorce.resid, ymin = Divorce - divorce.PIhi, ymax = Divorce - divorce.PIlo)) +
+  geom_segment(
+    col = "gray50", alpha = 0.8, size = 1.2,
+    aes(x = state, xend = state,
+        y = Divorce - mu.PIhi, yend = Divorce - mu.PIlo)) +
+  geom_point(aes(x = state, y = divorce.resid)) + 
+  coord_flip() 
+```
+
+### R code 5.15
+
+```{r, chunk5.15}
+n <- 100
+Sim51Data <-
+  data_frame( 
+    x_real = rnorm(n),         # x_real as Gaussian with mean 0 and stddev 1
+    x_spur = rnorm(n, x_real), # x_spur as Gaussian with mean = x_real
+    y =  rnorm(n, x_real)      # y as Gaussian with mean=x_real
+  )
+
+m_both <-
+  map(
+    alist(
+      y ~ dnorm(mu, sigma),
+      mu <- a + b_real * x_real + b_spur * x_spur,
+      a ~ dnorm(0, 3),
+      b_real ~ dnorm(0, 3),
+      b_spur ~ dnorm(0, 3),
+      sigma ~ dlnorm(0, 3)),
+    data = Sim51Data
+  ) 
+
+m_real <-
+  map(
+    alist(
+      y ~ dnorm(mu, sigma),
+      mu <- a + b_real * x_real, 
+      a ~ dnorm(0, 3),
+      b_real ~ dnorm(0, 3),
+      sigma ~ dlnorm(0, 3)),
+    data = Sim51Data
+  ) 
+
+m_spur <- 
+  map(
+    alist(
+      y ~ dnorm(mu, sigma),
+      mu <- a + b_spur * x_spur,
+      a ~ dnorm(0, 3),
+      b_spur ~ dnorm(0, 3),
+      sigma ~ dlnorm(0, 3)),
+    data = Sim51Data
+  )
+lapply(list(both = m_both, real = m_real, spur = m_spur), precis)
+```
+
+```{r}
+ggplot(Sim51Data, aes(x = x_real, y = y)) +
+  geom_point() +
+  geom_abline(intercept = coef(m_real)["a"], slope = coef(m_real)["b_real"])
+
+ggplot(Sim51Data, aes(x = x_spur, y = y)) +
+  geom_point() +
+  geom_abline(intercept = coef(m_spur)["a"], slope = coef(m_spur)["b_spur"]) 
+```
+
+### R code 5.16
+
+```{r, chunk5.16}
+data(milk)
+```
+
+### R code 5.17
+
+```{r, chunk5.17, error = TRUE}
+# This fails.
+m5.5 <- map(
+  alist(
+    kcal.per.g ~ dnorm(mu, sigma),
+    mu <- a + bn * neocortex.perc,
+    a ~ dnorm(0, 100),
+    bn ~ dnorm(0, 1),
+    sigma ~ dunif(0, 1)
+  ),
+  data = milk
+)
+```
+
+### R code 5.18
+
+```{r, chunk5.18}
+# Here's why the previous chunk failed -- missing data!
+favstats(~neocortex.perc, data = milk)
+```
+
+### R code 5.19
+
+```{r, chunk5.19}
+# Let's grab just the rows that have no missing data.
+MilkCC <- milk %>% filter(complete.cases(.))
+favstats(~ neocortex.perc, data = MilkCC)
+```
+
+### R code 5.20
+
+```{r, chunk5.20}
+m5.5 <- map(
+  alist(
+    kcal.per.g ~ dnorm(mu, sigma),
+    mu <- a + bn * neocortex.perc,
+    a ~ dnorm(0, 100),
+    bn ~ dnorm(0, 1),
+    sigma ~ dunif(0, 1)
+  ),
+  data = MilkCC
+)
+
+```
+
+### R code 5.21
+
+```{r, chunk5.21}
+precis(m5.5, digits = 3)
+```
+
+### R code 5.22
+
+```{r, chunk5.22}
+coef(m5.5)["bn"] * (76 - 55)
+```
+
+### R code 5.23
+
+```{r, chunk5.23}
+pred.data <- data.frame(neocortex.perc = 50:80)
+mu <- link(m5.5, data = pred.data, n = 1e4)
+m5.5.pred <-
+  pred.data %>%
+  mutate(
+    mu.mean = apply(mu, 2, mean),
+    mu.PIlo = apply(mu, 2, PI)[1,],
+    mu.PIhi = apply(mu, 2, PI)[2,]
+  )
+
+xyplot(mu.PIhi + mu.mean + mu.PIlo ~ neocortex.perc, 
+       data = m5.5.pred, type = "l")
+plotPoints(kcal.per.g ~ neocortex.perc, data = MilkCC, 
+           col = rangi2, alpha = 0.6, add = TRUE)
+
+ggplot(mapping = aes(x = neocortex.perc)) +
+  geom_point(aes(y = kcal.per.g, text = species), 
+             data = MilkCC, color = rangi2) +
+  geom_line(aes(y = mu.mean), data = m5.5.pred) +
+  geom_line(aes(y = mu.PIlo), data = m5.5.pred) +
+  geom_line(aes(y = mu.PIhi), data = m5.5.pred) 
+
+plotly::ggplotly()
+```
+
+### R code 5.24
+
+```{r, chunk5.24}
+MilkCC <- 
+  MilkCC %>% 
+  mutate(log.mass = log(mass))
+```
+
+### R code 5.25
+
+```{r, chunk5.25}
+m5.6 <- map(
+  alist(
+    kcal.per.g ~ dnorm(mu, sigma),
+    mu <- a + bm * log.mass,
+    a ~ dnorm(0, 100),
+    bm ~ dnorm(0, 1),
+    sigma ~ dunif(0, 1)
+  ),
+  data = MilkCC
+)
+precis(m5.6)
+
+```
+
+### R code 5.26
+
+```{r, chunk5.26}
+m5.7 <- map(
+  alist(
+    kcal.per.g ~ dnorm(mu, sigma),
+    mu <- a + bn * neocortex.perc + bm * log.mass,
+    a ~ dnorm(0, 100),
+    bn ~ dnorm(0, 1),
+    bm ~ dnorm(0, 1),
+    sigma ~ dunif(0, 1)
+  ),
+  data = MilkCC,
+  start = list(a = 0, bn = 0, bm = 0, sigma = 0.50)
+)
+precis(m5.7)
+```
+
+### R code 5.27
+
+```{r, chunk5.27}
+m5.7.pred <-
+  data_frame(
+    neocortex.perc = 50:80,
+    log.mass = mean(log(MilkCC$mass))
+  )
+m5.7.link <- link(m5.7, data = m5.7.pred, n = 1e4)
+m5.7.pred <-
+  m5.7.pred %>% 
+  mutate(
+    mu.mean = apply(mu, 2, mean),
+    mu.PIlo = apply(mu, 2, PI)[1,],
+    mu.PIhi = apply(mu, 2, PI)[2,]
+  )
+
+xyplot(mu.PIhi + mu.mean + mu.PIlo ~ neocortex.perc, 
+       data = m5.7.pred, type = "l", alpha = 0.5)
+plotPoints(kcal.per.g ~ neocortex.perc, data = MilkCC, add = TRUE)
+
+ggplot(mapping = aes(x = neocortex.perc)) +
+  geom_point(aes(y = kcal.per.g, text = species), data = MilkCC) +
+  geom_line(aes(y = mu.mean), data = m5.7.pred) +
+  geom_ribbon(aes(ymin = mu.PIlo, ymax = mu.PIhi), 
+              data = m5.7.pred, alpha = 0.3)
+plotly::ggplotly()
+``` 
+### R code 5.28
+
+```{r, chunk5.28}
+# simulating a masking relationship
+# n = number of cases
+# rho = correlation between two variables x_pos and x_neg
+sim_masking <- function(n = 100, rho = 0.7) {
+  data_frame(
+    x_pos = rnorm(n),
+    x_neg = rnorm(n, rho * x_pos, sd = sqrt(1 - rho^2)),
+    y = rnorm(n, x_pos - x_neg, sd = 1)   # y equally associated to each var
+  )
+}
+MaskingData <- sim_masking()
+splom(MaskingData)        # splom = scatter plot matrix (lattice)
+GGally::ggpairs(MaskingData)   # ggplot2 version
+```
+
+### R code 5.29
+
+```{r, chunk5.29}
+sim_legs <- function(n = 100) {
+  data_frame(
+    height = rnorm(n, 10, 2),    # units = ??
+    leg_prop = runif(n, 0.4, 0.5),
+    leg_left = leg_prop * height + rnorm(n, 0, 0.2),
+    leg_right = leg_prop * height + rnorm(n, 0, 0.2)
+  )
+}
+LegHeight <- sim_legs()
+```
+
+### R code 5.30
+
+```{r, chunk5.30}
+m5.8 <- map(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + bl * leg_left + br * leg_right,
+    a ~ dnorm(10, 100),
+    bl ~ dnorm(2, 10),
+    br ~ dnorm(2, 10),
+    sigma ~ dunif(0, 10)
+  ),
+  data = LegHeight
+)
+precis(m5.8)
+```
+
+### R code 5.31
+
+```{r, chunk5.31}
+GGally::ggpairs(LegHeight)
+plot(precis(m5.8))
+
+```
+
+### R code 5.32
+
+```{r, chunk5.32}
+m5.8.post <- extract.samples(m5.8)
+xyplot(bl ~ br, data = m5.8.post, col = rangi2, alpha = 0.1, pch = 16)
+ggplot(m5.8.post) +
+  geom_point(aes(x = br, y = bl), col = rangi2, alpha = 0.1)
+```
+
+### R code 5.33
+
+```{r, chunk5.33}
+densityplot(~(bl + br), data = m5.8.post)
+ggplot(m5.8.post) +
+  geom_area(aes(x = bl + br), alpha = 0.4, stat = "density")
+```
+
+### R code 5.34
+
+```{r, chunk5.34}
+m5.9 <- map(alist(
+  height ~ dnorm(mu, sigma),
+  mu <- a + bl * leg_left,
+  a ~ dnorm(10, 100),
+  bl ~ dnorm(2, 10),
+  sigma ~ dunif(0, 10)
+),
+data = LegHeight)
+precis(m5.9)
+```
+
+### R code 5.35
+
+```{r, chunk5.35}
+library(rethinking)
+data(milk)
+```
+
+### R code 5.36
+
+```{r, chunk5.36}
+# kcal.per.g regressed on perc.fat
+m5.10 <- map(
+  alist(
+    kcal.per.g ~ dnorm(mu, sigma),
+    mu <- a + bf * perc.fat,
+    a ~ dnorm(0.6, 10),
+    bf ~ dnorm(0, 1),
+    sigma ~ dunif(0, 10)
+  ),
+  data = milk
+)
+
+# kcal.per.g regressed on perc.lactose
+m5.11 <- map(
+  alist(
+    kcal.per.g ~ dnorm(mu, sigma),
+    mu <- a + bl * perc.lactose,
+    a ~ dnorm(0.6, 10),
+    bl ~ dnorm(0, 1),
+    sigma ~ dunif(0, 10)
+  ),
+  data = milk
+)
+
+lapply(list(fat = m5.10, lactose = m5.11), precis, digits = 3)
+```
+
+### R code 5.37
+
+```{r, chunk5.37}
+m5.12 <- map(
+  alist(
+    kcal.per.g ~ dnorm(mu, sigma),
+    mu <- a + bf * perc.fat + bl * perc.lactose,
+    a ~ dnorm(0.6, 10),
+    bf ~ dnorm(0, 1),
+    bl ~ dnorm(0, 1),
+    sigma ~ dunif(0, 10)
+  ),
+  data = milk
+)
+lapply(list(fat = m5.10, lactose = m5.11, `fat + lactose` = m5.12), precis, digits = 3)
+```
+
+### R code 5.38
+
+```{r, chunk5.38}
+splom(milk %>% select(kcal.per.g, perc.fat, perc.lactose))
+GGally::ggpairs(milk %>% select(kcal.per.g, perc.fat, perc.lactose))
+```
+
+### R code 5.39
+
+```{r, chunk5.39}
+cor(milk$perc.fat, milk$perc.lactose)
+# alternative syntax using mosaic package
+cor(perc.fat ~ perc.lactose, data = milk)
+```
+
+### R code 5.40
+
+```{r, chunk5.40}
+library(rethinking)
+data(milk)
+collinearity_sim <- 
+  function(rho = 0.9, data = milk) {
+    data <- 
+      data %>% 
+      mutate(
+        x = rnorm(nrow(data), mean = rho * perc.fat,
+               sd = sqrt((1 - rho^2) * var(perc.fat)))
+      )
+    model = lm(kcal.per.g ~ perc.fat + x, data = data)
+    sqrt(diag(vcov(model)))[2] # stddev of parameter
+  } 
+collinearity_sim <-
+  Vectorize(collinearity_sim, "rho")
+
+SimData5.40 <-
+  expand.grid(
+    r = seq(from = 0, to = 0.99, by = 0.01),
+    rep = 1:100) %>%
+  mutate(
+    sd = collinearity_sim(r)
+  ) 
+xyplot(
+  sd ~ r,
+  data = SimData5.40,
+  type = c("a"),  # a for average at each value of "x"
+  col = rangi2, lwd = 2,
+  xlab = "correlation",
+  ylab = "mean standard error for x"
+)
+
+ggplot(SimData5.40, aes(x = r, y = sd)) +
+  geom_point(alpha = 0.01) +
+  geom_line(data = SimData5.40 %>% group_by(r) %>% summarise(sd = mean(sd)), color = "red")
+```
+
+### R code 5.41
+
+```{r, chunk5.41}
+# simulate data where growth is inhibited by fungus, which is inhibit by soil treatments
+# number of plants
+SimData5.13 <-
+  expand.grid(
+    treatment = c(0, 1),
+    rep = 1:50              # 50 plants in each treatment group
+  ) %>% 
+  mutate(
+    height0 = rnorm(100, 10, 2),  # initial heights of plants
+    # fungus grows in half of control group and 10% of treatment group
+    fungus = rbinom(100, size = 1, prob = 0.5 - 0.4 * treatment),
+    # mean growth is 5 without fungus, 2 with fungus
+    height1 = height0 + rnorm(100, 5 - 3 * fungus)
+  )
+```
+
+### R code 5.42
+
+If we use `treatment` and `fungus` to predict growth, `treatment` appears to have no effect.
+But we know it does (since we simulated it that way).  The impact of `treatment` is 
+masked by the use of `fungus`, since the way `treatment` affects growth is by inhibiting
+fungus.  
+
+```{r, chunk5.42}
+m5.13 <- map(
+  alist(
+    height1 ~ dnorm(mu, sigma),
+    mu <- a + bh * height0 + bt * treatment + bf * fungus,
+    a ~ dnorm(0, 100),
+    c(bh, bt, bf) ~ dnorm(0, 10),
+    sigma ~ dunif(0, 10)
+  ),
+  data = SimData5.13
+)
+precis(m5.13)
+```
+
+### R code 5.43
+
+If we remove `fungus`, we can see the effect of `treatment`.
+
+```{r, chunk5.43}
+m5.14 <- map(
+  alist(
+    height1 ~ dnorm(mu, sigma),
+    mu <- a + bh * height0 + bt * treatment,
+    a ~ dnorm(0, 100),
+    c(bh, bt) ~ dnorm(0, 10),
+    sigma ~ dunif(0, 10)
+  ),
+  data = SimData5.13,
+  start = list(a = 2, bh = 1, bt = 1, sigma = 1)
+)
+precis(m5.14)
+```
+
+### R code 5.44
+
+```{r, chunk5.44}
+data(Howell1)
+```
+
+### R code 5.45
+
+```{r, chunk5.45}
+m5.15 <- 
+  map(
+    alist(
+      height ~ dnorm(mu, sigma),
+      mu <- a + bm * male,
+      a ~ dnorm(178, 100),
+      bm ~ dnorm(0, 10),
+      sigma ~ dunif(0, 50)
+    ),
+    data = Howell1)
+precis(m5.15)
+```
+
+### R code 5.46
+
+```{r, chunk5.46}
+m5.15.post <- 
+  extract.samples(m5.15) %>% 
+  mutate(
+    mu.male = a + bm
+  )
+PI(m5.15.post$mu.male)
+```
+
+### R code 5.47
+
+```{r, chunk5.47}
+m5.15b <- 
+  map(
+    alist(
+      height ~ dnorm(mu, sigma),
+      mu <- af * (1 - male) + am * male,
+      af ~ dnorm(178, 100),
+      am ~ dnorm(178, 100),
+      sigma ~ dunif(0, 50)
+    ),
+    data = Howell1
+  )
+```
+
+### R code 5.48
+
+```{r, chunk5.48}
+data(milk)
+tally(~ clade, data = milk)
+```
+
+### R code 5.49 - 50
+
+```{r, chunk5.49}
+milk <-
+  milk %>% 
+  mutate(
+    clade.NWM = ifelse(clade == "New World Monkey", 1, 0),
+    clade.OWM = ifelse(clade == "Old World Monkey", 1, 0),
+    clade.S = ifelse(clade == "Strepsirrhine", 1, 0)
+  )
+```
+
+### R code 5.51
+
+```{r, chunk5.51}
+m5.16 <- map(
+  alist(
+    kcal.per.g ~ dnorm(mu, sigma),
+    mu <- a + b.NWM * clade.NWM + b.OWM * clade.OWM + b.S * clade.S,
+    a ~ dnorm(0.6, 10),
+    b.NWM ~ dnorm(0, 1),
+    b.OWM ~ dnorm(0, 1),
+    b.S ~ dnorm(0, 1),
+    sigma ~ dunif(0, 10)
+  ),
+  data = milk
+)
+precis(m5.16)
+```
+
+### R code 5.52
+
+```{r, chunk5.52}
+# sample posterior
+m5.16.post <- 
+  extract.samples(m5.16) %>%
+  mutate(
+    # compute averages for each category
+    mu.ape = a,
+    mu.NWM = a + b.NWM,
+    mu.OWM = a + b.OWM,
+    mu.S   = a + b.S
+  )
+
+# summarize using precis 
+# computes mean, sd and PI for each variable in data frame
+precis(m5.16.post, digits = 3)
+```
+
+### R code 5.53
+
+```{r, chunk5.53}
+quantile( ~ (mu.NWM - mu.OWM), data = m5.16.post, probs = c(0.025, 0.5, 0.975))
+```
+
+### R code 5.54
+
+```{r, chunk5.54}
+milk <-
+  milk %>% 
+  mutate(
+    clade_id = coerce_index(clade)
+  )
+```
+
+### R code 5.55
+
+```{r, chunk5.55}
+m5.16_alt <- 
+  map(
+    alist(
+      kcal.per.g ~ dnorm(mu, sigma),
+      mu <- a[clade_id],
+      a[clade_id] ~ dnorm(0.6, 10),
+      sigma ~ dunif(0, 10)
+    ),
+    data = milk)
+precis(m5.16_alt, depth = 2)
+```
+
+### R code 5.56
+
+```{r, chunk5.56, eval = FALSE}
+m5.17 <- lm(y ~ 1 + x, data = d)
+m5.18 <- lm(y ~ 1 + x + z + w, data = d)
+```
+
+### R code 5.57
+
+```{r, chunk5.57, eval = FALSE}
+m5.19a <- lm(y ~ 1 + x, data = d)
+m5.19b <- lm(y ~ x, data = d)
+```
+
+### R code 5.58
+
+```{r, chunk5.58, eval = FALSE}
+m5.20 <- lm(y ~ 0 + x, data = d)
+m5.21 <- lm(y ~ x - 1, data = d)
+```
+
+### R code 5.59
+
+```{r, chunk5.59, eval = FALSE}
+m5.22 <- lm(y ~ 1 + as.factor(season), data = d)
+```
+
+### R code 5.60
+
+```{r, chunk5.60, eval = FALSE}
+m5.23 <- lm(y ~ 1 + x + x2 + x3, 
+            data = d %>% mutate(x2 = x^2, x3 = x^3))
+```
+
+### R code 5.61
+
+```{r, chunk5.61, eval = FALSE}
+m5.24 <- lm(y ~ 1 + x + I(x^2) + I(x^3), data = d)
+```
+
+### R code 5.62
+
+```{r, chunk5.62}
+data(cars)
+glimmer(dist ~ speed, data = cars)
+```
+
