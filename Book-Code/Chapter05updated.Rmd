@@ -32,10 +32,16 @@ The following model suggests that divorce rates are higher
 in states with more Waffle Houses (per capita).  
 
 ```{r}
+data(WaffleDivorce)
+WaffleDivorce <- 
+  WaffleDivorce %>% 
+  mutate(
+    WaffleHouses.pm = WaffleHouses / Population
+  )
 m5.0 <- map(
   alist(
     Divorce ~ dnorm(mu, sigma),
-    mu <- a + bW * WaffleHouses,
+    mu <- a + bW * WaffleHouses.pm,
     a ~ dnorm(10, 10),
     bW ~ dnorm(0, 1),
     sigma ~ dunif(0, 10)
@@ -44,13 +50,13 @@ m5.0 <- map(
 )
 precis(m5.0, digits = 3)
 xyplot(
-  Divorce ~ WaffleHouses, data = WaffleDivorce,
+  Divorce ~ WaffleHouses.pm, data = WaffleDivorce,
   panel = function(x, y, ...) {
     panel.xyplot(x, y, ...)
     panel.abline(coef(m5.0))
   }
 )
-ggplot(WaffleDivorce, aes(x = WaffleHouses)) +
+ggplot(WaffleDivorce, aes(x = WaffleHouses.pm)) +
   geom_point(aes(y = Divorce, text = Loc), color = rangi2) +
   geom_abline(intercept = coef(m5.0)["a"], slope = coef(m5.0)["bW"]) 
 plotly::ggplotly()
