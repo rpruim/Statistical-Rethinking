@@ -15,7 +15,7 @@ require(mosaic)
 require(rethinking)
 theme_set(theme_minimal())
 trellis.par.set(theme = theme.mosaic())
-set.seed(12345)
+set.seed(123456)
 ```
 
 Code from *Statistical Rethinking* modified by R Pruim is shown below.  Differences to the oringal include:
@@ -26,7 +26,7 @@ Code from *Statistical Rethinking* modified by R Pruim is shown below.  Differen
   * better (in my opinion) naming conventions
 
 
-### Waffle Houses and Divorce
+### Intro: Waffle Houses and Divorce
 
 The following model suggests that divorce rates are higher
 in states with more Waffle Houses (per capita).  
@@ -49,6 +49,10 @@ m5.0 <- map(
   data = WaffleDivorce
 )
 precis(m5.0, digits = 3)
+```
+
+Here is a plot.
+```{r}
 xyplot(
   Divorce ~ WaffleHouses.pm, data = WaffleDivorce,
   panel = function(x, y, ...) {
@@ -118,13 +122,13 @@ xyplot(Divorce ~ MedianAgeMarriage.s, data = WaffleDivorce, col = rangi2,
 ```{r}
 # plot it all
 ggplot(WaffleDivorce) +
-  geom_point(aes(y = Divorce,  x = MedianAgeMarriage.s), col = rangi2) +
+  geom_point(aes(y = Divorce,  x = MedianAgeMarriage.s, state = Loc), 
+             col = rangi2) +
   geom_abline(intercept = coef(m5.1)["a"], slope = coef(m5.1)["bA"], 
               col = "red", alpha = 0.5) +
   geom_ribbon(data = m5.1.pred, fill = "gray50", alpha = 0.3,
-              aes(x = MedianAgeMarriage.s, ymin = mu.PIlo, ymax = mu.PIhi)) +
-  geom_text(aes(x = MedianAgeMarriage.s, y = Divorce, label = Loc), size = 3, alpha = 0.5)
-
+              aes(x = MedianAgeMarriage.s, ymin = mu.PIlo, ymax = mu.PIhi))
+plotly::ggplotly()
 ```
 
 ### R code 5.3
@@ -186,15 +190,41 @@ m5.4 <- map(
 
 ```
 
-### R code 5.7
+### R code 5.7 -- computing residuals (the hard way)
 
 ```{r, chunk5.7}
-# compute expected value at MAP, for each State and residual
+# for each state, compute expected value at MAP and residual
 WaffleDivorce <-
   WaffleDivorce %>% 
   mutate(
     mu.m5.4 = coef(m5.4)['a'] + coef(m5.4)['b'] * MedianAgeMarriage.s,
     resid.m5.4 = Marriage.s - mu.m5.4
+  )
+```
+
+### R code 5.7a -- computing residuals (the "easy" way)
+
+`link()` takes care of computing the model value for each posterior sample
+so we don't have to access the coefficients directly.  As models become 
+more complicated, this will be easier.  Also, it provides us with more 
+information, since we have a distribution of model responses for each
+case.
+
+We are using the defaults here, but `link()` takes two additional arguments
+in addition to the model.
+
+  * `n`: number of posterior samples to use.  (The default is 1000.)  Increase this to reduce sampling variability (at the cost of time).
+  * `data`: optional data set to use in place of original data from `map()`.
+  Use this to make predictions using any predictor values you like.
+
+```{r, chunk5.7a}
+# for each state, compute expected value at MAP and residual
+m5.4.link <- link(m5.4) 
+WaffleDivorse <-
+  WaffleDivorce %>%
+  mutate(
+    mu = apply(m5.4.link, 2, mean),
+    resid = Marriage.s - mu
   )
 ```
 
@@ -219,6 +249,7 @@ ggplot(WaffleDivorce, aes(x = MedianAgeMarriage.s)) +
                color = "red", alpha = 0.5) +
   geom_abline(aes(intercept = coef(m5.4)["a"], slope = coef(m5.4)["b"])) + 
   geom_point(aes(y = Marriage.s), col = rangi2) 
+plotly::ggplotly()
 ```
 
 ### R code 5.9
@@ -254,11 +285,11 @@ xyplot(R.PIhi + mu.PIhi + mu.mean + mu.PIlo + R.PIlo ~ Marriage.s,
 
 ```{r, 5.9g}
 ggplot(m5.3.pred, aes(x = Marriage.s)) +
-  geom_line(aes(y = mu.mean, color = "gray50")) +
-  geom_line(aes(y = mu.mean, color = "gray50")) +
+  geom_line(aes(y = mu.mean), color = "gray50") +
+  geom_line(aes(y = mu.mean), color = "gray50") +
   geom_ribbon(aes(ymin = mu.PIlo, ymax = mu.PIhi), fill = "gray50", alpha = 0.2) +
   geom_ribbon(aes(ymin = R.PIlo, ymax = R.PIhi), fill = "gray50", alpha = 0.2) +
-  labs( y = "Divorce rate", caption = "Marriage.s = 0")
+  labs( y = "Divorce rate", caption = "MedianAgeMarriage.s = 0")
 ```
 
 
