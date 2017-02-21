@@ -58,9 +58,17 @@
 <<setup, include = FALSE>>=
 require(rethinking)
 require(mosaic)
+require(rvest)
+require(readr)
+require(statisticalModeling)
+
 knitr::opts_chunk$set(
-  background = c(1, 1, 1)
+  # background = c(1, 1, 1),
+  size = "small",
+  fig.height = 2.5,
+  fig.width = 7
 )
+theme_set(theme_minimal())
 @
 
 \pagestyle{fancy}
@@ -150,7 +158,6 @@ Additional assignments will be filled in over time.
   \extra{3M5}
   \\
   \hline
-  \newpage
   4 & \sout{Mon 2/13} & Rethinking 3 &
   \mand[births]{3H1--3H5}
   \\
@@ -158,8 +165,43 @@ Additional assignments will be filled in over time.
   \mand[describing models]{4E1--4E2}
   \mand[simulating prior]{4M1}
   \mand[map]{4M2}
-  \\ & & &
-  I'm not particulary fond of how the author sets things up in 3H1--3H5.  Here's a better way:
+
+  See the code below for 3H1--3H5
+\\
+  \hline
+  5 & Fri 2/17 & Rethinking 4 &
+  \mand{4E4--4E5}
+  \mand{4M3--4M6}
+\\
+  \hline
+  6 & Mon 2/20 & Rethinking 4 &
+  \mand{4H1}
+  \mand[Howell kids]{4H2}
+  \mand[log-kg]{4H3}
+\\
+  \hline
+  7 & Fri 2/24 & Rethinking 5 &
+  \helper{5E1}
+  \mand[creating models]{5E2--3}
+  \mand[LDS]{5M4}
+  \mand[foxes]{5H1--2}
+
+  See the code below for some hints for Problem 5M4
+\\
+\hline
+  % 8 & Mon 2/27 & Rethinking 5 &
+  %
+  % \mand[foxes]{5H3}
+  % \\
+  % \hline
+\end{longtable}
+\end{center}
+
+\newpage
+
+\subsection*{Some Code for PS 4}
+
+I'm not particulary fond of how the author sets things up in 3H1--3H5.  Here's a better way:
 <<>>=
 # load the birth1 and birth2 data vectors
 data(homeworkch3, package = "rethinking")
@@ -184,22 +226,48 @@ Birth %>%
   )
 @
 Take a look at the code I've posted online for a way to use something other than 0's and 1's.
-In any case, this summaries above are all you need to do the problems.
-\\
-  \hline
-  5 & Fri 2/17 & Rethinking 4 &
-  \mand{4E4--4E5}
-  \mand{4M3--4M6}
-\\
-  \hline
-  6 & Mon 2/20 & Rethinking 4 &
-  \mand{4H1}
-  \mand[Howell kids]{4H2}
-  \mand[log-kg]{4H3}
-  \\
-  \hline
-\end{longtable}
-\end{center}
+In any case, the summaries above are all you need to do the problems.
+
+\subsection*{Some Code for PS 7}
+
+Here is one way to get the data on Mormons (from Wikipedia).
+<<>>=
+require(rvest)
+# doing this a crazy way to make it fit on the page
+url <-
+  paste0("https://en.wikipedia.org/wiki/",
+         "The_Church_of_Jesus_Christ_of_Latter-day_Saints_",
+         "membership_statistics_(United_States)"
+  )
+tables <- html_nodes(read_html(url), "table")
+MormonsRaw <- html_table(tables[2], fill = TRUE)[[1]]
+@
+The numbers are formatted with commas in them, but we can use the following code to clean
+that up.
+<<>>=
+require(readr)
+Mormons <-
+  MormonsRaw %>%
+  rename(LDS.prop = LDS) %>%
+  mutate(
+    Membership = parse_number(Membership),
+    Population = parse_number(Population) / 1e6,  # in millions
+    LDS.prop   = parse_number(LDS.prop)
+    ) %>%
+  select(1:4)  # keep only first four columns
+@
+Finally, we merge this in with the other data.
+<<>>=
+data(WaffleDivorce)
+Divorce <-
+  WaffleDivorce %>% rename(State = Location) %>%
+  left_join(Mormons, by = "State")
+glimpse(Divorce)
+require(statisticalModeling)  # for gf_ functions
+# quick check that the two data sets give similar populations for each state
+gf_point(Population.y ~ Population.x, data = Divorce) +
+  geom_abline(intercept = 0, slope = 1, colour = "red", alpha = 0.5)
+@
 
 \label{end}
 \end{document}
