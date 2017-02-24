@@ -10,21 +10,25 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, fig.show = "hold")
 require(mosaic)
 require(rethinking)
+require(statisticalModeling)
 theme_set(theme_minimal())
 trellis.par.set(theme = theme.mosaic())
 set.seed(123456)
+inc.model <- TRUE
+inc.lattice <- FALSE
+inc.gg <- FALSE
+inc.gf <- TRUE
 ```
 
 Code from *Statistical Rethinking* modified by R Pruim is shown below.  Differences to the oringal include:
 
   * a preference for putting data into containers (data frames, mostly), rather than working with lose vectors.
-  * use of `lattice` and `ggplot2` rather than base graphics
+  * use of `lattice` and/or `ggplot2` rather than base graphics
   * use of `tidyverse` for data transformation
   * better (in my opinion) naming conventions
-
 
 ### Intro: Waffle Houses and Divorce
 
@@ -52,7 +56,7 @@ precis(m5.0, digits = 3)
 ```
 
 Here is a plot.
-```{r}
+```{r, include = inc.lattice}
 xyplot(
   Divorce ~ WaffleHouses.pm, data = WaffleDivorce,
   panel = function(x, y, ...) {
@@ -60,16 +64,27 @@ xyplot(
     panel.abline(coef(m5.0))
   }
 )
+```
+
+```{r, include = inc.gg}
 ggplot(WaffleDivorce, aes(x = WaffleHouses.pm)) +
   geom_point(aes(y = Divorce, text = Loc), color = rangi2) +
   geom_abline(intercept = coef(m5.0)["a"], slope = coef(m5.0)["bW"]) 
 plotly::ggplotly()
+require(statisticalModeling)   # need the version from rpruim on github
+```
+
+```{r, include = inc.gf}
+require(statisticalModeling)   # need the version from rpruim on github
+coef(m5.0)
+gf_point(Divorce ~ WaffleHouses.pm, data = WaffleDivorce, color = rangi2) %>%
+  gf_coefline(coef = coef(m5.0))
 ```
 
 
 ### R code 5.1
 
-```{r, chunk5.1}
+```{r, chunk5.1, include = inc.model}
 # load data
 library(rethinking)
 data(WaffleDivorce)
@@ -98,16 +113,18 @@ m5.1 <- map(
 # compute percentile interval of mean
 m5.1.pred <-
   data.frame(
-    MedianAgeMarriage.s = seq(from = -3, to = 3.5, length.out = 30)
+    MedianAgeMarriage.s = seq(from = -3, to = 3, by = 0.25)
   )
-mu <- link(m5.1, data = m5.1.pred)
+m5.1.link <- link(m5.1, data = m5.1.pred)
 m5.1.pred <- 
   m5.1.pred %>% 
   mutate(
-    mu.PIlo = apply(mu, 2, PI)[1,],
-    mu.PIhi = apply(mu, 2, PI)[2,]
+    mu.PIlo = apply(m5.1.link, 2, PI)[1,],
+    mu.PIhi = apply(m5.1.link, 2, PI)[2,]
   )
+```
 
+```{r, chunk5.2l, include = inc.lattice}
 # plot it all
 xyplot(Divorce ~ MedianAgeMarriage.s, data = WaffleDivorce, col = rangi2,
        panel = function(x, y, ...) {
@@ -115,11 +132,9 @@ xyplot(Divorce ~ MedianAgeMarriage.s, data = WaffleDivorce, col = rangi2,
          panel.abline(coef(m5.1), col = "red")
        }
 )
-# shade(mu.PI, MAM.seq)
-
 ```
 
-```{r}
+```{r, chunk5.2g, include = inc.gg}
 # plot it all
 ggplot(WaffleDivorce) +
   geom_point(aes(y = Divorce,  x = MedianAgeMarriage.s, state = Loc), 
@@ -131,9 +146,19 @@ ggplot(WaffleDivorce) +
 plotly::ggplotly()
 ```
 
+```{r, chunk5.2gf, include = inc.gf}
+# plot it all
+gf_point(Divorce ~ MedianAgeMarriage.s + label:Loc, color = rangi2, 
+         data = WaffleDivorce) %>% 
+  gf_ribbon(mu.PIlo + mu.PIhi ~ MedianAgeMarriage.s, data = m5.1.pred,  
+            alpha = 0.2) %>%
+  gf_coefline(coef = coef(m5.1), col = "red", alpha = 0.5) %>%
+plotly::ggplotly()
+```
+
 ### R code 5.3
 
-```{r, chunk5.3}
+```{r, chunk5.3, include = inc.model}
 WaffleDivorce <-
   WaffleDivorce %>% 
   mutate(Marriage.s = zscore(Marriage))
@@ -150,9 +175,42 @@ m5.2 <- map(
 )
 ```
 
+```{r, chunk5.3a}
+m5.2.pred <-
+  data.frame(
+    Marriage.s = seq(from = -3, to = 3, by = 0.25)
+  )
+m5.2.link <- link(m5.2, data = m5.2.pred)
+m5.2.pred <- 
+  m5.2.pred %>% 
+  mutate(
+    mu.PIlo = apply(m5.2.link, 2, PI)[1,],
+    mu.PIhi = apply(m5.2.link, 2, PI)[2,]
+  )
+```
+
+```{r, chunk5.3g, include = inc.gg, include = inc.gg}
+# plot it all
+ggplot(WaffleDivorce) +
+  geom_point(aes(y = Divorce,  x = Marriage.s, state = Loc), col = rangi2) +
+  geom_abline(intercept = coef(m5.2)["a"], slope = coef(m5.2)["bR"], 
+              col = "red", alpha = 0.5) +
+  geom_ribbon(data = m5.2.pred, alpha = 0.1,
+              aes(x = Marriage.s, ymin = mu.PIlo, ymax = mu.PIhi))
+plotly::ggplotly()
+```
+
+```{r, chunk5.3gf, include = inc.gg, include = inc.gf}
+# plot it all
+gf_point(Divorce ~ Marriage.s, data = WaffleDivorce, col = rangi2) %>%
+  gf_coefline(coef = coef(m5.2), col = "red", alpha = 0.5) %>%
+  gf_ribbon(mu.PIlo + mu.PIhi ~ Marriage.s, data = m5.2.pred, alpha = 0.1)
+plotly::ggplotly()
+```
+
 ### R code 5.4
 
-```{r, chunk5.4}
+```{r, chunk5.4, include = inc.model}
 m5.3 <- map(
   alist(
     Divorce ~ dnorm(mu, sigma),
@@ -165,7 +223,6 @@ m5.3 <- map(
   data = WaffleDivorce
 )
 precis(m5.3)
-
 ```
 
 ### R code 5.5
@@ -176,7 +233,7 @@ plot(precis(m5.3))
 
 ### R code 5.6
 
-```{r, chunk5.6}
+```{r, chunk5.6, include = inc.model}
 m5.4 <- map(
   alist(
     Marriage.s ~ dnorm(mu, sigma),
@@ -187,7 +244,6 @@ m5.4 <- map(
   ),
   data = WaffleDivorce
 )
-
 ```
 
 ### R code 5.7 -- computing residuals (the hard way)
@@ -220,17 +276,18 @@ in addition to the model.
 ```{r, chunk5.7a}
 # for each state, compute expected value at MAP and residual
 m5.4.link <- link(m5.4) 
-WaffleDivorse <-
+WaffleDivorce <-
   WaffleDivorce %>%
   mutate(
     mu = apply(m5.4.link, 2, mean),
     resid = Marriage.s - mu
   )
+WaffleDivorce %>% select(Loc, mu, resid) %>% head(3)
 ```
 
 ### R code 5.8
 
-```{r, chunk5.8}
+```{r, chunk5.8l, include = inc.lattice}
 xyplot(Marriage.s ~ MedianAgeMarriage.s, data = WaffleDivorce, col = rangi2,
        panel = function(x,y, ...){
          panel.abline(coef(m5.4))
@@ -243,12 +300,21 @@ xyplot(Marriage.s ~ MedianAgeMarriage.s, data = WaffleDivorce, col = rangi2,
        }
 )
 ```
-```{r, chunk5.8g}
+
+```{r, chunk5.8g, include = inc.gg, include = inc.gg}
 ggplot(WaffleDivorce, aes(x = MedianAgeMarriage.s)) +
   geom_segment(aes(xend = MedianAgeMarriage.s, y = mu.m5.4, yend = Marriage.s), 
                color = "red", alpha = 0.5) +
   geom_abline(aes(intercept = coef(m5.4)["a"], slope = coef(m5.4)["b"])) + 
   geom_point(aes(y = Marriage.s), col = rangi2) 
+plotly::ggplotly()
+```
+
+```{r, chunk5.8gf, include = inc.gf, include = inc.gf}
+gf_segment(mu.m5.4 + Marriage.s ~ MedianAgeMarriage.s + MedianAgeMarriage.s, 
+           data = WaffleDivorce, color = "red", alpha = 0.5) %>%
+  gf_coefline(coef = coef(m5.4)) %>%
+  gf_point(Marriage.s ~ MedianAgeMarriage.s, col = rangi2, data = WaffleDivorce) 
 plotly::ggplotly()
 ```
 
@@ -276,6 +342,9 @@ m5.3.pred <-
      R.PIlo = apply(R.sim, 2, PI)[1,],
      R.PIhi = apply(R.sim, 2, PI)[2,]
   )
+```
+
+```{r, chunk5.9l, include = inc.lattice}
 xyplot(R.PIhi + mu.PIhi + mu.mean + mu.PIlo + R.PIlo ~ Marriage.s, 
        data = m5.3.pred, type = "l",
        ylab = "Divorce rate",
@@ -283,14 +352,22 @@ xyplot(R.PIhi + mu.PIhi + mu.mean + mu.PIlo + R.PIlo ~ Marriage.s,
        sub = "MedianAgeMarriage.s = 0")
 ```
 
-```{r, 5.9g}
+```{r, 5.9g, include = inc.gg, include = inc.gg}
 ggplot(m5.3.pred, aes(x = Marriage.s)) +
-  geom_line(aes(y = mu.mean), color = "gray50") +
-  geom_line(aes(y = mu.mean), color = "gray50") +
+ geom_line(aes(y = mu.mean), color = "gray50") +
   geom_ribbon(aes(ymin = mu.PIlo, ymax = mu.PIhi), fill = "gray50", alpha = 0.2) +
   geom_ribbon(aes(ymin = R.PIlo, ymax = R.PIhi), fill = "gray50", alpha = 0.2) +
   labs( y = "Divorce rate", caption = "MedianAgeMarriage.s = 0")
 ```
+
+```{r, 5.9gf, include = inc.gg, include = inc.gf}
+gf_line(mu.mean ~ Marriage.s, data = m5.3.pred, color = "gray50") %>%
+  gf_ribbon(mu.PIlo + mu.PIhi ~ Marriage.s, fill = "gray50", alpha = 0.2) %>%
+  gf_ribbon(R.PIlo + R.PIhi ~ Marriage.s, fill = "gray50", alpha = 0.2) +
+  labs( y = "Divorce rate", caption = "MedianAgeMarriage.s = 0")
+```
+
+
 
 
 ### R code 5.10
@@ -315,7 +392,8 @@ m5.3.pred2 <-
     A.PIhi = apply(A.sim, 2, PI)[2,]
   )
 
-
+```
+```{r, chunk5.10l, include = inc.lattice}
 xyplot(A.PIhi + mu.PIhi + mu.mean + mu.PIlo + A.PIlo ~ MedianAgeMarriage.s,
        data = m5.3.pred2, type = "l",
        ylab = "Divorce rate",
@@ -323,11 +401,18 @@ xyplot(A.PIhi + mu.PIhi + mu.mean + mu.PIlo + A.PIlo ~ MedianAgeMarriage.s,
        sub = "Marriage.s = 0")
 ```
 
-```{r, 5.10g}
+```{r, 5.10g, include = inc.gg, include = inc.gg}
 ggplot(m5.3.pred2, aes(x = MedianAgeMarriage.s)) +
   geom_line(aes(y = mu.mean), color = "red") +
   geom_ribbon(aes(ymin = mu.PIlo, ymax = mu.PIhi), fill = "gray50", alpha = 0.2) +
   geom_ribbon(aes(ymin = A.PIlo, ymax = A.PIhi), fill = "gray50", alpha = 0.2) +
+  labs( y = "Divorce rate", caption = "Marriage.s = 0")
+```
+
+```{r, 5.10gf, include = inc.gf, include = inc.gf}
+gf_line(mu.mean ~ MedianAgeMarriage.s, data = m5.3.pred2, color = "red") %>%
+  gf_ribbon(mu.PIlo + mu.PIhi ~ MedianAgeMarriage.s, alpha = 0.1) %>%
+  gf_ribbon(A.PIlo + A.PIhi ~ MedianAgeMarriage.s, alpha = 0.1) +
   labs( y = "Divorce rate", caption = "Marriage.s = 0")
 ```
 
@@ -355,7 +440,7 @@ m5.3.pred3 <-
 
 ### R code 5.12
 
-```{r, chunk5.12}
+```{r, chunk5.12l, include = inc.lattice}
 xyplot(
   mu.mean ~ Divorce,
   data = m5.3.pred3,
@@ -366,23 +451,30 @@ xyplot(
   panel = function(x, y, ..., y0, y1) {
     panel.xyplot(x, y, ...)
     panel.abline(a = 0, b = 1)
-    with(m5.3.pred3, panel.segments(x0 = x, x1 = x, y0 = mu.PIlo, y1 = mu.PIhi))
+    with(m5.3.pred3, panel.segments(x0 = x, x1 = x, y0 = divorce.PIlo, y1 = divorce.PIhi))
   }
 )
 ```
 
 
-```{r, chunk5.12g}
+```{r, chunk5.12g, include = inc.gg, include = inc.gg}
 ggplot(data = m5.3.pred3, 
-       aes(x = Divorce, y = mu.mean, ymin = mu.PIlo, ymax = mu.PIhi, text = Loc)) +
+       aes(x = Divorce, y = mu.mean, ymin = divorce.PIlo, ymax = divorce.PIhi, text = Loc)) +
   geom_pointrange(col = rangi2) +
   geom_abline(slope = 1, intercept = 0) +
   labs(x =  "Observed divorce", y = "Predicted divorce")
 ```
 
+```{r, chunk5.12gf, include = inc.gf, include = inc.gf}
+gf_pointrange(mu.mean + divorce.PIlo + divorce.PIhi ~ Divorce, data = m5.3.pred3,
+              color = rangi2) %>%
+  gf_abline(slope = 1, intercept = 0) +
+  labs(x =  "Observed divorce", y = "Predicted divorce")
+```
+
 ### R code 5.13
 
-```{r, chunk5.13}
+```{r, chunk5.13, include = inc.gg || inc.gf}
 # make most recent ggplot interactive
 # adding text to the geom_point() above makes it available on hover here.
 plotly::ggplotly()
@@ -396,25 +488,48 @@ m5.3.pred3 <-
   m5.3.pred3 %>% 
   mutate(divorce.resid = Divorce - mu.mean,
          state = reorder(Loc, divorce.resid))
+```
 
+```{r, chuk5.14g, include = inc.gg}
 ggplot(m5.3.pred3) +
-  geom_pointrange(
+  geom_linerange(
     col = "gray50", alpha = 0.5, size = 0.8,
     aes(x = state,
         y = divorce.resid, ymin = Divorce - divorce.PIhi, ymax = Divorce - divorce.PIlo)) +
-  geom_segment(
+  geom_linerange(
     col = "gray50", alpha = 0.8, size = 1.2,
-    aes(x = state, xend = state,
-        y = Divorce - mu.PIhi, yend = Divorce - mu.PIlo)) +
+    aes(x = state, 
+        ymin = Divorce - mu.PIhi, ymax = Divorce - mu.PIlo)) +
   geom_point(aes(x = state, y = divorce.resid)) + 
   coord_flip() 
 ```
 
+```{r, chuk5.14gf, include = inc.gf, include = inc.gf, fig.height = 5}
+gf_linerange((Divorce - divorce.PIlo) + (Divorce - divorce.PIhi) ~ Loc, 
+             data = m5.3.pred3, alpha = 0.2, size = 0.9) %>%
+  gf_linerange((Divorce - mu.PIlo) + (Divorce - mu.PIhi) ~ Loc, 
+             data = m5.3.pred3, alpha = 0.2, size = 1.4) %>%
+  gf_point(divorce.resid ~ Loc, data = m5.3.pred3) + 
+  coord_flip() 
+```
+
+```{r, inlcude = inc.gf}
+WaffleDivorce <-
+  WaffleDivorce %>%
+  mutate(
+    WaffleHouses.pc = WaffleHouses / Population * 1e6,
+    divorce.resid = Divorce - apply(link(m5.3), 2, mean) 
+  )
+gf_point(divorce.resid ~ WaffleHouses.pc + label:Loc, 
+         data = WaffleDivorce) %>%
+  gf_smooth(divorce.resid ~ WaffleHouses.pc, method = "lm", size = 0.5) %>%
+  plotly::ggplotly()
+```
 ### R code 5.15
 
 ```{r, chunk5.15}
 n <- 100
-Sim51Data <-
+Sim5.15Data <-
   data_frame( 
     x_real = rnorm(n),         # x_real as Gaussian with mean 0 and stddev 1
     x_spur = rnorm(n, x_real), # x_spur as Gaussian with mean = x_real
@@ -430,7 +545,7 @@ m_both <-
       b_real ~ dnorm(0, 3),
       b_spur ~ dnorm(0, 3),
       sigma ~ dlnorm(0, 3)),
-    data = Sim51Data
+    data = Sim5.15Data
   ) 
 
 m_real <-
@@ -441,7 +556,7 @@ m_real <-
       a ~ dnorm(0, 3),
       b_real ~ dnorm(0, 3),
       sigma ~ dlnorm(0, 3)),
-    data = Sim51Data
+    data = Sim5.15Data
   ) 
 
 m_spur <- 
@@ -452,20 +567,52 @@ m_spur <-
       a ~ dnorm(0, 3),
       b_spur ~ dnorm(0, 3),
       sigma ~ dlnorm(0, 3)),
-    data = Sim51Data
+    data = Sim5.15Data
   )
 lapply(list(both = m_both, real = m_real, spur = m_spur), precis)
 ```
 
-```{r}
-ggplot(Sim51Data, aes(x = x_real, y = y)) +
+```{r, chunk5.15g, include = inc.gg}
+ggplot(Sim5.15Data, aes(x = x_real, y = y)) +
   geom_point() +
   geom_abline(intercept = coef(m_real)["a"], slope = coef(m_real)["b_real"])
 
-ggplot(Sim51Data, aes(x = x_spur, y = y)) +
+ggplot(Sim5.15Data, aes(x = x_spur, y = y)) +
   geom_point() +
   geom_abline(intercept = coef(m_spur)["a"], slope = coef(m_spur)["b_spur"]) 
 ```
+```{r, chunk5.15gf, include = inc.gf}
+gf_point(y ~ x_real, data = Sim5.15Data) %>%
+  gf_coefline(coef = coef(m_real))
+
+gf_point(y ~ x_spur, data = Sim5.15Data) %>%
+  gf_coefline(coef = coef(m_spur))
+```
+
+## The milk data set
+
+### Source
+
+Comparative primate milk composition data, from Table 2 of 
+Hinde and Milligan. 2011. **Evolutionary Anthropology** 20:9-23.
+
+### Variables
+
+  * `clade`: Broad taxonomic group
+
+  * `species`: Species name
+
+  * `kcal.per.g`: Kilocalories per gram of milk
+
+  * `perc.fat`: Percent fat
+
+  * `perc.protein`: Percent protein
+
+  * `perc.lactose`: Percent lactose
+
+  * `mass`: Body mass of mother, in kilograms
+
+  * `neocortex.perc`: Percent of brain mass that is neocortex
 
 ### R code 5.16
 
@@ -475,7 +622,7 @@ data(milk)
 
 ### R code 5.17
 
-```{r, chunk5.17, error = TRUE}
+```{r, chunk5.17, error = TRUE, include = inc.model}
 # This fails.
 m5.5 <- map(
   alist(
@@ -493,7 +640,7 @@ m5.5 <- map(
 
 ```{r, chunk5.18}
 # Here's why the previous chunk failed -- missing data!
-favstats(~neocortex.perc, data = milk)
+favstats( ~ neocortex.perc, data = milk)
 ```
 
 ### R code 5.19
@@ -506,7 +653,7 @@ favstats(~ neocortex.perc, data = MilkCC)
 
 ### R code 5.20
 
-```{r, chunk5.20}
+```{r, chunk5.20, include = inc.model}
 m5.5 <- map(
   alist(
     kcal.per.g ~ dnorm(mu, sigma),
@@ -517,7 +664,6 @@ m5.5 <- map(
   ),
   data = MilkCC
 )
-
 ```
 
 ### R code 5.21
@@ -544,22 +690,33 @@ m5.5.pred <-
     mu.PIlo = apply(mu, 2, PI)[1,],
     mu.PIhi = apply(mu, 2, PI)[2,]
   )
+```
 
+```{r, chunk5.23l, include = inc.lattice}
 xyplot(mu.PIhi + mu.mean + mu.PIlo ~ neocortex.perc, 
        data = m5.5.pred, type = "l")
 plotPoints(kcal.per.g ~ neocortex.perc, data = MilkCC, 
            col = rangi2, alpha = 0.6, add = TRUE)
+```
 
+```{r, chunk5.23g, include = inc.gg}
 ggplot(mapping = aes(x = neocortex.perc)) +
   geom_point(aes(y = kcal.per.g, text = species), 
              data = MilkCC, color = rangi2) +
   geom_line(aes(y = mu.mean), data = m5.5.pred) +
   geom_line(aes(y = mu.PIlo), data = m5.5.pred) +
   geom_line(aes(y = mu.PIhi), data = m5.5.pred) 
-
 plotly::ggplotly()
 ```
 
+```{r, chunk5.23gf, include = inc.gf}
+gf_point(kcal.per.g ~ neocortex.perc + label:species, data = MilkCC,
+         color = rangi2) %>%
+  gf_line(mu.mean ~ neocortex.perc, data = m5.5.pred) %>%
+  gf_ribbon(mu.PIlo + mu.PIhi ~ neocortex.perc, data = m5.5.pred,
+            alpha = 0.2) %>%
+plotly::ggplotly()
+```
 ### R code 5.24
 
 ```{r, chunk5.24}
@@ -570,7 +727,7 @@ MilkCC <-
 
 ### R code 5.25
 
-```{r, chunk5.25}
+```{r, chunk5.25, include = inc.model}
 m5.6 <- map(
   alist(
     kcal.per.g ~ dnorm(mu, sigma),
@@ -582,12 +739,11 @@ m5.6 <- map(
   data = MilkCC
 )
 precis(m5.6)
-
 ```
 
 ### R code 5.26
 
-```{r, chunk5.26}
+```{r, chunk5.26, include = inc.model}
 m5.7 <- map(
   alist(
     kcal.per.g ~ dnorm(mu, sigma),
@@ -619,18 +775,30 @@ m5.7.pred <-
     mu.PIlo = apply(mu, 2, PI)[1,],
     mu.PIhi = apply(mu, 2, PI)[2,]
   )
+```
 
+```{r, chunk5.27l, include = inc.lattice}
 xyplot(mu.PIhi + mu.mean + mu.PIlo ~ neocortex.perc, 
        data = m5.7.pred, type = "l", alpha = 0.5)
 plotPoints(kcal.per.g ~ neocortex.perc, data = MilkCC, add = TRUE)
+```
 
+```{r, chunk5.27gg, include = inc.gg}
 ggplot(mapping = aes(x = neocortex.perc)) +
   geom_point(aes(y = kcal.per.g, text = species), data = MilkCC) +
   geom_line(aes(y = mu.mean), data = m5.7.pred) +
   geom_ribbon(aes(ymin = mu.PIlo, ymax = mu.PIhi), 
-              data = m5.7.pred, alpha = 0.3)
+              data = m5.7.pred, alpha = 0.3) 
 plotly::ggplotly()
 ``` 
+
+```{r, chunk5.27gf, include = inc.gf}
+gf_point(kcal.per.g ~ neocortex.perc + label:species, data = MilkCC) %>%
+gf_ribbon(mu.PIlo + mu.PIhi ~ neocortex.perc, data = m5.7.pred, alpha = 0.2) %>%
+gf_line(mu.mean ~ neocortex.perc, data = m5.7.pred, alpha = 0.5) %>%
+plotly::ggplotly()
+``` 
+
 ### R code 5.28
 
 ```{r, chunk5.28}
@@ -665,7 +833,7 @@ LegHeight <- sim_legs()
 
 ### R code 5.30
 
-```{r, chunk5.30}
+```{r, chunk5.30, include = inc.model}
 m5.8 <- map(
   alist(
     height ~ dnorm(mu, sigma),
@@ -692,22 +860,43 @@ plot(precis(m5.8))
 
 ```{r, chunk5.32}
 m5.8.post <- extract.samples(m5.8)
+```
+
+```{r, chunk5.32l, include = inc.lattice}
 xyplot(bl ~ br, data = m5.8.post, col = rangi2, alpha = 0.1, pch = 16)
+```
+
+```{r, chunk5.32g, include = inc.gg}
 ggplot(m5.8.post) +
   geom_point(aes(x = br, y = bl), col = rangi2, alpha = 0.1)
 ```
 
+```{r, chunk5.32gf, include = inc.gf}
+gf_point(bl ~ br, data = m5.8.post, col = rangi2, alpha = 0.1, pch = 16)
+```
+
 ### R code 5.33
 
-```{r, chunk5.33}
+```{r, chunk5.33l, include = inc.lattice}
 densityplot(~(bl + br), data = m5.8.post)
+```
+```{r, chunk5.33gg, include = inc.gg}
 ggplot(m5.8.post) +
-  geom_area(aes(x = bl + br), alpha = 0.4, stat = "density")
+  geom_area(aes(x = bl + br), alpha = 0.3, stat = "density")
+```
+
+```{r, chunk5.33gf, include = inc.gf}
+# clunky for now -- on the fly addition not working in gf functions (yet)
+m5.8.post <-
+  m5.8.post %>%
+  mutate(sum_bl_br = bl + br)
+gf_dens( ~ sum_bl_br, data = m5.8.post) +
+  labs(x = "bl + br")
 ```
 
 ### R code 5.34
 
-```{r, chunk5.34}
+```{r, chunk5.34, include = inc.model}
 m5.9 <- map(alist(
   height ~ dnorm(mu, sigma),
   mu <- a + bl * leg_left,
@@ -728,7 +917,7 @@ data(milk)
 
 ### R code 5.36
 
-```{r, chunk5.36}
+```{r, chunk5.36, include = inc.model}
 # kcal.per.g regressed on perc.fat
 m5.10 <- map(
   alist(
@@ -758,7 +947,7 @@ lapply(list(fat = m5.10, lactose = m5.11), precis, digits = 3)
 
 ### R code 5.37
 
-```{r, chunk5.37}
+```{r, chunk5.37, include = inc.model}
 m5.12 <- map(
   alist(
     kcal.per.g ~ dnorm(mu, sigma),
@@ -775,8 +964,10 @@ lapply(list(fat = m5.10, lactose = m5.11, `fat + lactose` = m5.12), precis, digi
 
 ### R code 5.38
 
-```{r, chunk5.38}
+```{r, chunk5.38l, include = inc.lattice}
 splom(milk %>% select(kcal.per.g, perc.fat, perc.lactose))
+```
+```{r, chunk5.38gg, include = inc.gg || inc.gf}
 GGally::ggpairs(milk %>% select(kcal.per.g, perc.fat, perc.lactose))
 ```
 
@@ -814,6 +1005,9 @@ SimData5.40 <-
   mutate(
     sd = collinearity_sim(r)
   ) 
+```
+
+```{r, chunk5.40l, include = inc.lattice} 
 xyplot(
   sd ~ r,
   data = SimData5.40,
@@ -822,10 +1016,17 @@ xyplot(
   xlab = "correlation",
   ylab = "mean standard error for x"
 )
+```
 
+```{r, chunk5.40g, include = inc.gg} 
 ggplot(SimData5.40, aes(x = r, y = sd)) +
   geom_point(alpha = 0.01) +
   geom_line(data = SimData5.40 %>% group_by(r) %>% summarise(sd = mean(sd)), color = "red")
+```
+
+```{r, chunk5.40gf, include = inc.gf} 
+gf_point(sd ~ r, data = SimData5.40, alpha = 0.01) %>%
+  gf_spline(sd ~ r)
 ```
 
 ### R code 5.41
@@ -854,7 +1055,7 @@ But we know it does (since we simulated it that way).  The impact of `treatment`
 masked by the use of `fungus`, since the way `treatment` affects growth is by inhibiting
 fungus.  
 
-```{r, chunk5.42}
+```{r, chunk5.42, include = inc.model}
 m5.13 <- map(
   alist(
     height1 ~ dnorm(mu, sigma),
@@ -872,7 +1073,7 @@ precis(m5.13)
 
 If we remove `fungus`, we can see the effect of `treatment`.
 
-```{r, chunk5.43}
+```{r, chunk5.43, include = inc.model}
 m5.14 <- map(
   alist(
     height1 ~ dnorm(mu, sigma),
@@ -895,7 +1096,7 @@ data(Howell1)
 
 ### R code 5.45
 
-```{r, chunk5.45}
+```{r, chunk5.45, include = inc.model}
 m5.15 <- 
   map(
     alist(
@@ -922,7 +1123,7 @@ PI(m5.15.post$mu.male)
 
 ### R code 5.47
 
-```{r, chunk5.47}
+```{r, chunk5.47, iclude = inc.model}
 m5.15b <- 
   map(
     alist(
@@ -932,7 +1133,8 @@ m5.15b <-
       am ~ dnorm(178, 100),
       sigma ~ dunif(0, 50)
     ),
-    data = Howell1
+    data = Howell1,
+    start = list(af = 178, am = 178, sigma = 3)
   )
 ```
 
@@ -957,7 +1159,7 @@ milk <-
 
 ### R code 5.51
 
-```{r, chunk5.51}
+```{r, chunk5.51, include = inc.model}
 m5.16 <- map(
   alist(
     kcal.per.g ~ dnorm(mu, sigma),
@@ -1010,7 +1212,7 @@ milk <-
 
 ### R code 5.55
 
-```{r, chunk5.55}
+```{r, chunk5.55, include = inc.model}
 m5.16_alt <- 
   map(
     alist(
