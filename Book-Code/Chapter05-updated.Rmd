@@ -13,7 +13,7 @@ output:
 knitr::opts_chunk$set(echo = TRUE, fig.show = "hold")
 require(mosaic)
 require(rethinking)
-require(statisticalModeling)
+require(ggformula)
 theme_set(theme_minimal())
 trellis.par.set(theme = theme.mosaic())
 set.seed(123456)
@@ -71,11 +71,11 @@ ggplot(WaffleDivorce, aes(x = WaffleHouses.pm)) +
   geom_point(aes(y = Divorce, text = Loc), color = rangi2) +
   geom_abline(intercept = coef(m5.0)["a"], slope = coef(m5.0)["bW"]) 
 plotly::ggplotly()
-require(statisticalModeling)   # need the version from rpruim on github
+require(ggformula)   # need the version from rpruim on github
 ```
 
 ```{r, include = inc.gf}
-require(statisticalModeling)   # need the version from rpruim on github
+require(ggformula)   # need the version from rpruim on github
 coef(m5.0)
 gf_point(Divorce ~ WaffleHouses.pm, data = WaffleDivorce, color = rangi2) %>%
   gf_coefline(coef = coef(m5.0))
@@ -363,8 +363,8 @@ ggplot(m5.3.pred, aes(x = Marriage.s)) +
 ```{r, 5.9gf, include = inc.gg, include = inc.gf}
 gf_line(mu.mean ~ Marriage.s, data = m5.3.pred, color = "gray50") %>%
   gf_ribbon(mu.PIlo + mu.PIhi ~ Marriage.s, fill = "gray50", alpha = 0.2) %>%
-  gf_ribbon(R.PIlo + R.PIhi ~ Marriage.s, fill = "gray50", alpha = 0.2) +
-  labs( y = "Divorce rate", caption = "MedianAgeMarriage.s = 0")
+  gf_ribbon(R.PIlo + R.PIhi ~ Marriage.s, fill = "gray50", alpha = 0.2) %>%
+  gf_labs( y = "Divorce rate", caption = "MedianAgeMarriage.s = 0")
 ```
 
 
@@ -412,8 +412,8 @@ ggplot(m5.3.pred2, aes(x = MedianAgeMarriage.s)) +
 ```{r, 5.10gf, include = inc.gf, include = inc.gf}
 gf_line(mu.mean ~ MedianAgeMarriage.s, data = m5.3.pred2, color = "red") %>%
   gf_ribbon(mu.PIlo + mu.PIhi ~ MedianAgeMarriage.s, alpha = 0.1) %>%
-  gf_ribbon(A.PIlo + A.PIhi ~ MedianAgeMarriage.s, alpha = 0.1) +
-  labs( y = "Divorce rate", caption = "Marriage.s = 0")
+  gf_ribbon(A.PIlo + A.PIhi ~ MedianAgeMarriage.s, alpha = 0.1) %>%
+  gf_labs( y = "Divorce rate", caption = "Marriage.s = 0")
 ```
 
 ### R code 5.11
@@ -468,8 +468,8 @@ ggplot(data = m5.3.pred3,
 ```{r, chunk5.12gf, include = inc.gf, include = inc.gf}
 gf_pointrange(mu.mean + divorce.PIlo + divorce.PIhi ~ Divorce, data = m5.3.pred3,
               color = rangi2) %>%
-  gf_abline(slope = 1, intercept = 0) +
-  labs(x =  "Observed divorce", y = "Predicted divorce")
+  gf_abline(slope = 1, intercept = 0) %>%
+  gf_labs(x =  "Observed divorce", y = "Predicted divorce")
 ```
 
 ### R code 5.13
@@ -589,7 +589,7 @@ gf_point(y ~ x_spur, data = Sim5.15Data) %>%
   gf_coefline(coef = coef(m_spur))
 ```
 
-## The milk data set
+## The milk data set (masked relationships)
 
 ### Source
 
@@ -817,6 +817,14 @@ splom(MaskingData)        # splom = scatter plot matrix (lattice)
 GGally::ggpairs(MaskingData)   # ggplot2 version
 ```
 
+## More isn't always merrier
+
+So far we have seen examples where adding in additional variables
+helps us understand what is going on.  But adding variables to the model 
+can actually make thigs worse in some situations.
+
+We start with a simulated example and then return to our milk data set.
+
 ### R code 5.29
 
 ```{r, chunk5.29}
@@ -886,12 +894,7 @@ ggplot(m5.8.post) +
 ```
 
 ```{r, chunk5.33gf, include = inc.gf}
-# clunky for now -- on the fly addition not working in gf functions (yet)
-m5.8.post <-
-  m5.8.post %>%
-  mutate(sum_bl_br = bl + br)
-gf_dens( ~ sum_bl_br, data = m5.8.post) +
-  labs(x = "bl + br")
+gf_dens( ~ (bl + br), data = m5.8.post) 
 ```
 
 ### R code 5.34
@@ -906,6 +909,7 @@ m5.9 <- map(alist(
 ),
 data = LegHeight)
 precis(m5.9)
+plot(precis(m5.9))
 ```
 
 ### R code 5.35
@@ -1088,6 +1092,9 @@ m5.14 <- map(
 precis(m5.14)
 ```
 
+## Categorical Predictors -- 2 levels
+
+
 ### R code 5.44
 
 ```{r, chunk5.44}
@@ -1138,6 +1145,13 @@ m5.15b <-
   )
 ```
 
+## Categorical Predictors -- More than 2 Levels
+
+Coding a $k$-level categorical variable as $1, 2, 3, \dots k$, is not a good
+idea in most cases.  (Think about what $\mu_i = a + b x_i$ would say in 
+that case -- it's usually not the model we want.)  Instead, we need a 
+different encoding that uses *multiple predictors*.
+
 ### R code 5.48
 
 ```{r, chunk5.48}
@@ -1147,14 +1161,24 @@ tally(~ clade, data = milk)
 
 ### R code 5.49 - 50
 
+Here we create variables that are indicators for a particular level
+of `clade`.  That is, for each clade $c$ we create a new variable
+$x_c$ defined as
+
+$$
+x_c = [\![\mathrm{clade} = c  ]\!] 
+$$
+
 ```{r, chunk5.49}
 milk <-
   milk %>% 
   mutate(
+    clade.Ape = ifelse(clade == "Ape", 1, 0),
     clade.NWM = ifelse(clade == "New World Monkey", 1, 0),
     clade.OWM = ifelse(clade == "Old World Monkey", 1, 0),
     clade.S = ifelse(clade == "Strepsirrhine", 1, 0)
   )
+milk %>% select(species, matches("clade")) %>% sample_n(5)
 ```
 
 ### R code 5.51
@@ -1202,15 +1226,21 @@ quantile( ~ (mu.NWM - mu.OWM), data = m5.16.post, probs = c(0.025, 0.5, 0.975))
 
 ### R code 5.54
 
+`map()` provides ways to deal with all of the clade indicator variables systematically.
+First, we convert to the numbers $1, 2, 3, 4$.
+
 ```{r, chunk5.54}
 milk <-
   milk %>% 
   mutate(
     clade_id = coerce_index(clade)
   )
+milk %>% select(matches("clade")) %>% sample_n(5)
 ```
 
 ### R code 5.55
+
+Now we fit a model with four coefficients `a[1], a[2], a[3], a[4]`.
 
 ```{r, chunk5.55, include = inc.model}
 m5.16_alt <- 
@@ -1224,6 +1254,14 @@ m5.16_alt <-
     data = milk)
 precis(m5.16_alt, depth = 2)
 ```
+
+## lm() and map()
+
+Linear models can be fit in a non-Bayesian way using `lm()`.  Because `lm()` knows the model
+is linear, it uses terser notation for the model -- you just list the variables and `lm()` supplies
+the coefficients to multiply by each one (and an intercept, unless you remove it).  Also
+`lm()` knows how to convert categorical data into multiple predictors, so you only have 
+list the categorical variable and `lm()` takes care of the rest.
 
 ### R code 5.56
 
@@ -1267,8 +1305,29 @@ m5.24 <- lm(y ~ 1 + x + I(x^2) + I(x^3), data = d)
 
 ### R code 5.62
 
+If you know how to make a model using `lm()`, `glimmer()` will help you create
+a formula list for `map()` that does the same job.
+
 ```{r, chunk5.62}
 data(cars)
 glimmer(dist ~ speed, data = cars)
 ```
 
+```{r, chunk5.62a}
+data(KidsFeet, package = "mosaicData")
+glimmer(length ~ width + sex, data = KidsFeet)
+# this shows how lm is coding the categorical variable
+KidsFeet %>% head(5) %>% select(name, sex, length, width)
+model.matrix(length ~ width + sex, data = KidsFeet) %>% head(5)
+```
+
+As you might guess, folks interested in a Bayesian approach to linar models (and some generalizations
+of linear models) have also written functions to make those models easier to describe and it.
+The `rstanarm` and `brms` packages are two such packages.  Here's a quick example using the 
+default priors.
+
+```{r}
+require(rstanarm)
+model <- stan_lm(length ~ width + sex, data = KidsFeet, prior = NULL)
+model
+```
