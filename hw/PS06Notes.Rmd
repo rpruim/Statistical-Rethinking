@@ -1,0 +1,166 @@
+---
+title: "Problem Set 6 Notes"
+author: "R Pruim"
+date: "February 25, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(rethinking)
+require(mosaic)
+require(ggformula)
+```
+
+
+# Problem Set 6 (chapter 4)
+
+## R Markdown things
+
+Your use of R Markdown is getting better quickly as you figure out how to do the things you want (mostly).  Here are some things to watch out for:
+
+  1. Use the mosaic template to get started.
+  
+    I created this to give a good boiler plate to start from. You aren't required to use it
+    (you might modify it a bit and save a copy with things just the way you like, with your
+    name, etc.), but there are some things that will be essentially the same in each document.
+    Why type them every time?
+  
+  1. Avoid overly long lines in code.
+  
+    Code does not wrap because the alignment of the code helps express its
+    organization. Use your linebreaks to make the code more readable and make sure
+    nothings spills off the page on the right side.
+  
+  2. Use autoindent.
+  
+    If you highlight some code and hit control/command-i, R Studio will autoindent your code.
+    This is a good way to make sure you didn't omit a comma or a paren or a curly brace or ...
+    It also makes your code more readable.
+  
+  3. Some items need to be separated by blank lines.
+  
+    Make sure you have a blank line between R code and the following text and before and after 
+    your section headers (`### ` etc. -- also don't forget the space after `###`).
+  
+  4. Knit from time to time while you are working.
+  
+    That way if there is an issue, you will know roughly where it is and won't have 
+    a surprise and a headache on your hands at the end.  "Restart R and run all chunks" is
+    also a good option and nearly the same as knitting.
+  
+  5. Got math?
+  
+    See [https://www.calvin.edu/~rpruim/courses/s341/S17/from-class/MathinRmd.html](https://www.calvin.edu/~rpruim/courses/s341/S17/from-class/MathinRmd.html) for some notes on how to include 
+    mathematical notation.
+  
+  6. Cheatsheets
+  
+    RStudio produces a number of cheat sheets, including one on R Markdown.  You can find it at
+    [https://www.rstudio.com/resources/cheatsheets/](https://www.rstudio.com/resources/cheatsheets/).
+    Several of those cheat sheets will be useful for this class.
+  
+  7. Suppressing things.
+  
+    Sometimes you don't want all of the R output to show up in your document.  The template 
+    includes a chunk near the top that is executed but neither its code nor the results of 
+    executing the code are dispalyed.  This is done by adding the chunk option `include = FALSE`.
+
+    Got too many plots?  Try `fig.keep = "last"` to display only the last figure.  Or something like
+    `fig.keep = c(1, 4, 7)` to keep the first, fourth, and seventh.
+  
+     I didn't actually run that code.  I used `eval = FALSE` to tell R not to evaluate the 
+     code in that chunk.  That can be useful to show what form a code chunk should have even
+     though you don't have the data to execute it.
+  
+  8. R Chunk options.
+  
+     There are lots of other code chunk options as well.  Hit tab inside the code chunk to 
+     see a list.  Most are pretty self-explanatory.  `fig.width` and `fig.height` can be used
+     to modify the height or width of a figure if it needs more or less space, for example.
+     
+## Deciding what to include in your report/homework
+
+It's hard to give general advice that will work for all situations, but here are some rough 
+guidelines.
+
+  1. If you comment on it, display it.
+  
+    Did you talk about the coefficients of the model?  Make sure they appear in your R output.
+    Do you talk about a plot?  Be sure to include the plot.  
+  
+    For homework, be sure to include enough so that if you make an error, I have some 
+    chance of figuring out where it might be.
+  
+  2. If you don't talk about it, you might not need to include it.
+  
+    In a normal report, it is generally the case that things that aren't part of
+    your "story" should be included in the  output either.  Homework is a little
+    different, of course.  If a problem asks for something, you should be sure 
+    to include it.  Often, you should comment on it (but not always, I guess).
+
+## Building and interpreting models
+
+  1. In the linear model contact, the intercept and "slope" parameters are often called
+  **coefficients**.  The $\sigma$ parameter is not a coefficient of the model, but it 
+  is still an important parameter (and you should know how to interpret it).
+  
+  2. Monotone transformations vs quadratic models
+  
+    Both monotone transformations (`log()`, `sqrt()`, `1/x`, `x^2`, etc.) and quadratic models 
+    (`a + b * x + c * x^2`) can produce fitted values that fall along a curve.  But quadratic 
+    models have another feature: they either rise and then fall or fall and then rise.  If the
+    presence of a maximum or minimum doesn't make sense for our model, then the quadratic model
+    probably isn't what you want.  (You might get lucky and the peak or valley might be outside
+    the range of your data, so sometimes you can get away with a quadratic model anyway.)  
+  
+    In the Kung! height models, a monotone transformation (like the `log()` transformation you
+    were asked to try) makes more sense than a quadratic model. 
+  
+    You can combine both ideas and fit models like `a + b log(x) + c * (log(x))^2`.
+  
+  3. Interpretting the slope in a model like $y = a + b  \log(x)$.
+  
+    The main question to ask is what happens when `x` changes.  In this case, an additive 
+    change is hard to work with but a multiplicative change is much easier.  For example,
+    let's consider the difference `y` values when we incrase `x` by 1%.
+  
+$$
+a + b \log(1.01x) - (a + b \log(x)) = a + b \log(1.01) + b \log x - a - b \log x = b \log(1.01)
+$$
+
+  Importantly, this number does not depend on $x$.  So the $b$ coefficient tells
+  about the rate at which $y$ increases for a percentage increase in $x$.  (You
+  can play the same game with any other percentage you like.)
+  
+  If you use `log2()`, then you can easily express this in terms of what happens
+  when $x$ doubles or halves).
+
+  4. `link()` and `sim()`
+  
+    We've talked about this in class already, but make sure you understand how
+    these two functions work, what sort of output they create, and what you can
+    do with that output.  You should also be able to do the same task without
+    using `link()` or `sim()` but starting directly from `extract.samples()`.
+    
+  5. Note: You can use the same posterior samples in both `link()` and `sim()`.
+  
+    This saves a little time and will make sure that you are using consistent 
+    samples for both operations.  Simply save the posterior samples and pass
+    them along:
+    
+```{r eval = FALSE}
+posterior_samples <- extract.samples(my_model)
+model_link <- link(my_model, post = posterior_samples)
+model_sim  <-  sim(my_model, post = posterior_samples)
+```
+
+## ggformula is open for business
+
+The `ggformula` package is open for business.  I'll likely lean on that heavily
+for graphics going forward becuase (a) it is pretty easy to use, (b) it gives us 
+the plots we want for the least amount of typing, and (c) I want to bang on the
+code some to find any rough edges that need work.
+
+You can find a vignette describing the package at
+[https://rawgithub.com/rpruim/Statistical-Rethinking/master/Examples/ggformula.html](https://rawgithub.com/rpruim/Statistical-Rethinking/master/Examples/ggformula.html)
