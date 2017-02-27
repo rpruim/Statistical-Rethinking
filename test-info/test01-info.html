@@ -132,15 +132,20 @@ $(document).ready(function () {
 <div id="topics" class="section level2">
 <h2>Topics</h2>
 <p>This list isn’t meant to be exhaustive, but I hope it is useful in preparing for the test.</p>
-<div id="technique" class="section level3">
-<h3>Technique</h3>
+<div id="techniques" class="section level3">
+<h3>Techniques</h3>
 <ol style="list-style-type: decimal">
 <li><p>Grid Method</p></li>
 <li><p>Quadratic approximation using <code>map()</code></p></li>
 <li><p>Posterior sampling</p>
 <ol style="list-style-type: lower-alpha">
 <li><p>manually (for example, when using the grid method)</p></li>
-<li><p>using <code>expract.samples()</code></p></li>
+<li><p>using <code>extract.samples()</code></p></li>
+</ol></li>
+<li><p>Using posterior samples to investigate</p>
+<ol style="list-style-type: lower-alpha">
+<li><p>model paramters</p></li>
+<li><p>model predictions (for averages and for individuals)</p></li>
 </ol></li>
 <li><p>A non-exhaustive list of R commands you should know</p>
 <ul>
@@ -157,11 +162,10 @@ $(document).ready(function () {
 <ol style="list-style-type: decimal">
 <li><p>Conditional probability and connections to Bayesian inference</p>
 <ul>
-<li>definition of conditional probability</li>
-<li>problems like the pandas problem</li>
+<li><p>definition of conditional probability</p></li>
+<li><p>problems like the pandas problem</p></li>
 </ul></li>
-<li><span class="math inline">\(\mathrm{posterior} \propto \mathrm{prior} \cdot \mathrm{likelihood}\)</span><br />
-</li>
+<li><p><span class="math inline">\(\mathrm{posterior} \propto \mathrm{prior} \cdot \mathrm{likelihood}\)</span></p></li>
 <li><p>What grid apprid approximation is, how it works, and why it is limited to models with only a few parameters.</p></li>
 <li><p>What posterior sampling is and what can be done with posterior samples.</p></li>
 <li><p>Why quadratic approximation is called that and roughly how it works.</p>
