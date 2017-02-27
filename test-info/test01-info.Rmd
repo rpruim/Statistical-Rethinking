@@ -98,5 +98,5 @@ This list isn't meant to be exhaustive, but I hope it is useful in preparing for
     with a normal distribution
     * plots for models (especially those with multiple predictors)
     * residuals
-    * masking, spureous relationships and other issues that can be
+    * masking, spurious relationships and other issues that can be
     revealed by fitting models with multiple predictors.
