@@ -57,7 +57,12 @@ This list isn't meant to be exhaustive, but I hope it is useful in preparing for
     
     b. model predictions (for averages and for individuals)
     
-  4. A non-exhaustive list of R commands you should know
+      * Creating counterfactual data (for example, for use with 
+      `link()` and `sim()`
+    
+  5. Centering
+    
+  6. A non-exhaustive list of R commands you should know
   
     * Plotting commands (`lattice`, `ggplot2`, or `ggformula` versions) 
     for the types of plots we have been making.
@@ -69,6 +74,8 @@ This list isn't meant to be exhaustive, but I hope it is useful in preparing for
     * working with data frames: `data_frame()`, `expand.grid()`, `mutate()`, `filter()`
     
     * distributions: `dnorm()`, `dbinom()`, `dunif()`, `rnorm()`, `rbinom()`, `runif()`
+    
+    * miscelaneous: `zscore()`, `str()`, `head()`, `sample()`
     
 ### Concepts
 
@@ -109,3 +116,5 @@ This list isn't meant to be exhaustive, but I hope it is useful in preparing for
     * residuals
     * masking, spurious relationships and other issues that can be
     revealed by fitting models with multiple predictors.
+
+  8. Why and how to center variables used in models
