@@ -1,0 +1,102 @@
+---
+title: "Test 1 Info Sheet"
+author: ""
+date: "Stat 341 -- Spring 2017"
+output:
+  html_document:
+    fig_height: 2.5
+    fig_width: 3.5
+  pdf_document:
+    fig_height: 2.5
+    fig_width: 3.5
+  word_document:
+    fig_height: 2.5
+    fig_width: 3.5
+---
+
+```{r, setup, include=FALSE}
+# Load packages here 
+require(rethinking)
+require(mosaic)   
+require(ggformula)
+
+# Some customization.  You can alter or delete as desired (if you know what you are doing).
+trellis.par.set(theme=theme.mosaic()) # change default color scheme for lattice
+knitr::opts_chunk$set(
+  tidy=FALSE,     # display code as typed
+  size="small",   # slightly smaller font for code
+  fig.show = "hold")   # all plots at end of chunk
+theme_set(theme_minimal())
+```
+
+## Logistics
+
+  * In-class test: Friday, March 3
+  * Take-home test: Due Monday, March 6
+  * Both portions cover through chapter 5 of *Statistical Rethinking*
+  
+## Topics 
+
+This list isn't meant to be exhaustive, but I hope it is useful in preparing for the test.
+
+### Technique
+
+  1. Grid Method
+  
+  2. Quadratic approximation using `map()`
+  
+  3. Posterior sampling
+  
+    a. manually (for example, when using the grid method)
+    
+    b. using `expract.samples()`
+    
+  4. A non-exhaustive list of R commands you should know
+  
+    * Plotting commands (`lattice`, `ggplot2`, or `ggformula` versions) 
+    for the types of plots we have been making.
+    
+    * from `rethinking`:  `map()`, `alist()`, `precis()`, `extract.samples()`, `link()`, `sim()`, `chainmode()`
+    
+    * `apply()`
+    
+    * working with data frames: `data_frame()`, `expand.grid()`, `mutate()`, `filter()`
+    
+    * distributions: `dnorm()`, `dbinom()`, `dunif()`, `rnorm()`, `rbinom()`, `runif()`
+    
+### Concepts
+
+  1. Conditional probability and connections to Bayesian inference
+  
+    * definition of conditional probability
+    * problems like the pandas problem
+    
+  2. $\mathrm{posterior} \propto \mathrm{prior} \cdot \mathrm{likelihood}$    
+  3. What grid apprid approximation is, how it works, and why 
+  it is limited to models with only a few parameters.
+  
+  4. What posterior sampling is and what can be done with
+  posterior samples.
+  
+  5. Why quadratic approximation is called that and roughly how it works.
+  
+    * potential problems with quadratic approxiation (and why we will
+    need a third method eventually)
+    
+  6. Creating models
+  
+    * selecting priors that are reasonable
+    * creating a model relationship (equation with variables and parameters)
+    * (additive) linear models
+    * handling categorical variables
+    
+  7. Interpreting models
+  
+    * interpreting model coefficients (and their uncertainty).
+    * interpreting model predictions (and their uncertainty).
+    * interpreting $\sigma$ in models where the resopnse is modeled
+    with a normal distribution
+    * plots for models (especially those with multiple predictors)
+    * residuals
+    * masking, spureous relationships and other issues that can be
+    revealed by fitting models with multiple predictors.
