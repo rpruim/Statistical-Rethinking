@@ -3,10 +3,10 @@ title: "Test 1 Info Sheet"
 author: ''
 date: "Stat 341 -- Spring 2017"
 output:
-  pdf_document:
+  html_document:
     fig_height: 2.5
     fig_width: 3.5
-  html_document:
+  pdf_document:
     fig_height: 2.5
     fig_width: 3.5
   word_document:
@@ -41,7 +41,16 @@ This list isn't meant to be exhaustive, but I hope it is useful in preparing for
 
 ### Techniques
 
-  1. Grid Method
+  1. Creating Numerical and Graphical Summaries
+  
+    * You have your choice of `lattice`, `ggplot2`, or `ggformula`, but I'm likely going
+    to be leaning heavily and `ggformula`, since it does what we need most easily.  If you 
+    use `lattice`, the migration should be pretty easy.  If you already know (or are 
+    learning) `ggplot2`, it's fine to continue with that.  (Anything you can do with `ggformula`
+    can be done with `ggplot2`, since `ggformula` just translates a new interface into
+    `ggplot2` code.
+  
+  2. Grid Method
   
   2. Quadratic approximation using `map()`
   
@@ -75,7 +84,7 @@ This list isn't meant to be exhaustive, but I hope it is useful in preparing for
     
     * distributions: `dnorm()`, `dbinom()`, `dunif()`, `rnorm()`, `rbinom()`, `runif()`
     
-    * miscelaneous: `zscore()`, `str()`, `head()`, `sample()`
+    * miscelaneous: `zscore()`, `str()`, `head()`, `sample()`, `coerce_index()`
     
 ### Concepts
 
@@ -104,7 +113,6 @@ This list isn't meant to be exhaustive, but I hope it is useful in preparing for
     * creating a model relationship (equation with variables and parameters)
     * (additive) linear models
     * handling categorical variables  
-    
     
   7. Interpreting models
   
