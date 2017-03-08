@@ -1,0 +1,171 @@
+
+\documentclass{scrartcl}
+\usepackage[margin=.5in,top=.3in,bottom=.4in,includehead,includefoot]{geometry}
+
+\usepackage{problems}
+\usepackage{probstat}
+
+
+%\parindent=0pt
+\parskip=3pt
+
+
+%\usepackage{mathpple}
+%\usepackage{fullpage}
+\usepackage{alltt}
+\usepackage{sfsect}
+\usepackage{longtable}
+
+\usepackage[normalem]{ulem}
+
+\newif\ifanswers
+\answerstrue
+\answersfalse
+
+\def\blank#1{%
+\ifanswers
+\underline{{\large \sc #1}}
+\else
+\underline{\phantom{\Large \ \ \ \sc #1 \ \ \ }}
+\fi
+}
+
+\def\dd#1{\medskip\noindent\textbf{\large #1}}
+\def\be{\begin{enumerate}}
+\def\ee{\end{enumerate}}
+\def\bi{\begin{itemize}}
+\def\ei{\end{itemize}}
+
+\def\hwn#1{\relax}
+\def\hwn#1{\ {\tiny (#1)}}
+\def\hwn#1{$_{\mbox{\ \tiny #1}}$}
+\def\hwn#1{~{\tiny #1}}
+
+\usepackage[normalem]{ulem}
+\usepackage{ifthen}
+\usepackage{fancyhdr}
+\usepackage[colorlinks, urlcolor = blue]{hyperref}
+\include{myabbrev}
+
+
+\renewcommand{\labelenumi}{\textbf{\arabic{enumi}}}
+\newcommand{\myunderline}[1]{\uline{\phantom{Ay}#1\phantom{Ay}}}
+
+\newcommand{\helper}[2][\relax]{(#2)\hwn{#1}}
+\newcommand{\extra}[2][\relax]{[#2]\hwn{#1}}
+\newcommand{\opt}[2][\relax]{\{#2\}\hwn{#1}}
+\newcommand{\mand}[2][\relax]{{\bf \large #2}\hwn{#1}}
+\renewcommand{\arraystretch}{1.4}
+
+\begin{document}
+
+<<setup, include = FALSE>>=
+require(rethinking)
+require(mosaic)
+require(rvest)
+require(readr)
+require(statisticalModeling)
+
+knitr::opts_chunk$set(
+  # background = c(1, 1, 1),
+  size = "small",
+  fig.height = 2.5,
+  fig.width = 7
+)
+theme_set(theme_minimal())
+@
+
+\pagestyle{fancy}
+
+\chead{}
+\lhead{Stat 341 -- Spring 2017}
+\rhead{\thepage/\pageref{end}}
+\lfoot{}
+\cfoot{Created \today\ --- See web site for most current version.}
+\rfoot{}
+
+\begin{center}
+\large
+\subsection*{Problem Sets Between Tests 1 and 2}
+
+\end{center}
+
+
+\textit{Only turn in problems that are \textbf{not} bracketed.}
+Bracketed problems are additional problems you can look at.
+Round brackets indicate problems that may help you with problems that
+are assigned; square brackets are additional problems on material
+that you should know, but you are not required to write up solutions;
+curly brackets are truly optional and may contain extra nuggets that you
+will not be required to know but may be interested in.
+
+Additional assignments will be filled in over time.
+
+\bigskip
+
+\begin{center}
+
+\iftrue
+\begin{longtable}{|c|l|}
+  \hline
+  notation & meaning \\
+  \hline
+  unbracketed & assigned problem -- turn these in for grading \\
+  $()$ & helper/warm-up problem  \\
+  $[]$ & additional problems (you are responsible for content, but don't turn them in) \\
+  \{\} & covers optional material \\
+  \hline
+\end{longtable}
+\fi
+
+\bigskip
+
+\begin{longtable}{|c|c|c|p{4.3in}|}
+  \hline
+  PS & Due & Source & Problems \\
+  \hline\hline
+  \endhead
+  9 & Wed 3/8 & Rethinking 6 &
+  \mand[entropy]{6E3--6E4}
+  \\
+  & & Additional Problems &
+  \mand[entropy]{1}
+  \mand[entropy]{2}
+\\
+\hline
+\end{longtable}
+\end{center}
+
+
+\subsection*{Additional Problems}
+
+\begin{problem}
+Making entropy larger.
+\begin{enumerate}
+\item
+Which is larger:  $H(0.1, 0.3, 0.6)$ or $H(0.2, 0.2, 0.6)$?
+\item
+Let $\vec p = \tuple{p_1, p_2, p_3}$ and let
+$\vec q = \tuple{p, p, p_3}$ where $p = \frac{p_1 + p_2}{2}$.
+Compute $H(\vec p)$ and $H(\vec q)$.  Which is larger?
+\item
+Suppose a random process has $n$ outcomes.  Show that with
+one exception, there is always another random process that
+also has $n$ outcomes, but has higher entropy?
+What is the one exception?  (The exception is the
+random process with the maximal entropy among processes with $n$ outcomes.)
+\end{enumerate}
+\end{problem}
+
+\begin{problem}
+Compute the entropy of tossing two coins two different ways:
+\begin{enumerate}
+\item Consider the outcomes to be 0, 1 or 2 heads.
+\item Consider the outcomes to be HH, HT, TH, or TT.
+\end{enumerate}
+How do the results compare?  Can you generalize?
+\end{problem}
+
+\label{end}
+\end{document}
+
