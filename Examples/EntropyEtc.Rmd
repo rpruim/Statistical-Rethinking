@@ -569,6 +569,21 @@ DIC(m6.8)
 ```
  
  
- * $WAIC$ 
+ * $\mathrm{WAIC} = -2 \mathrm{llpd} - 2 p_{\mbox{WAIC}}$.
+ 
+    * $\mathrm{llpd} = \sum_{i=1}^{n} Pr(y_i)$ 
+    
+      * replaces log likelihood in AIC And DIC
+      * $Pr(y_i)$ is **average** likelihood (over posterior samples of parameters) for observation $i$
+      * better notation: $E_{\theta}( L(y_i \mid \theta))$.
+      * similar to log likelihood but we use posterior samples and sum the average log-likelihood for each observation over the posterior distribution of parameter values (instead of just using the MAP values)
+      * this is computationally more challenging, but `WAIC()` computes it for us from a model
+      
+    * $p_{\mbox{WAIC}} = \sum_{i=1}^{n} V(y_i)$
+    
+      * effective number of parameters
+      * $V(y_i)$ is the variances in the log likelihood estimates for each observation (over the posterior distribution of parameters)
+      
+      
  
  
