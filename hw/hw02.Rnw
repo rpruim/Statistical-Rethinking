@@ -132,9 +132,44 @@ Additional assignments will be filled in over time.
   \mand[entropy]{1}
   \mand[entropy]{2}
 \\
+  10 & Fri 3/17 & Rethinking 6 &
+ \mand[same data]{6M3}
+ \mand[narrow prior]{6M4}
+ \mand[compare models]{6H1}
+
+ \mand[train vs. test]{6H4}
+ \mand[train vs. test]{6H5}
+
+ \medskip
+
+ \emph{Use the replacement code below in place of the R code 6.31 and 6.32.}
+
 \hline
 \end{longtable}
 \end{center}
+
+% \mand[regularizing prior]{6H6}
+
+
+\subsection*{Replacement Code}
+
+\subsubsection*{R Code 6.31}
+<<chunk6.31>>=
+library(rethinking)
+data(Howell1)
+Howell <-
+  Howell1 %>%  mutate(age.s = zscore(age))
+set.seed(1000)     # so we all get the same "random" data sets
+train <- sample(1:nrow(Howell), size = nrow(Howell) / 2)  # half of the rows
+Howell.train <- Howell[ train, ]   # put half in training set
+Howell.test  <- Howell[-train, ]   # the other half in test set
+@
+
+\subsubsection*{R Code 6.32}
+<<chunk6.32, eval = FALSE>>=
+# Youn need to come up with mu and sigma
+sum(dnorm(Howell.test$height, mu, sigma, log = TRUE))
+@
 
 
 \subsection*{Additional Problems}
