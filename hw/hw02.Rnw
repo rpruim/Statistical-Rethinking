@@ -165,9 +165,21 @@ Howell.train <- Howell[ train, ]   # put half in training set
 Howell.test  <- Howell[-train, ]   # the other half in test set
 @
 
+<<include = FALSE>>=
+m <- map(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + b * age.s,
+    a ~ dnorm(138, 10),
+    b ~ dnorm(0, 10),
+    sigma ~ dunif(0, 50)),
+  data = Howell.train
+)
+@
+
 \subsubsection*{R Code 6.32}
 <<chunk6.32, eval = FALSE>>=
-# Youn need to come up with mu and sigma
+# You need to come up with mu and sigma
 sum(dnorm(Howell.test$height, mu, sigma, log = TRUE))
 @
 
