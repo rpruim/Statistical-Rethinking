@@ -1,5 +1,5 @@
 ---
-title: "Chapter 6 Wrap Up?"
+title: "Chapter 6 Wrap Up"
 author: "Stat 341 -- Spring 2017"
 date: ''
 output:
