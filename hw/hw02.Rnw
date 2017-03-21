@@ -131,7 +131,7 @@ Additional assignments will be filled in over time.
   & & Additional Problems &
   \mand[entropy]{1}
   \mand[entropy]{2}
-\\
+\\ \hline
   10 & Fri 3/17 & Rethinking 6 &
  \mand[same data]{6M3}
  \mand[narrow prior]{6M4}
@@ -144,7 +144,13 @@ Additional assignments will be filled in over time.
 
  \emph{Use the replacement code below in place of the R code 6.31 and 6.32.}
 
-\hline
+\\ \hline
+  11 & Wed 3/29 & Rethinking 6 &
+  \mand[selection v averaging]{6M2}
+  \mand[over/under fitting]{6M5--6M6}
+  \mand[plotting models]{6H2}
+  \mand[model averaging]{6H3}
+\\ \hline
 \end{longtable}
 \end{center}
 
