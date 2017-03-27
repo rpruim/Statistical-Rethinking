@@ -1,0 +1,52 @@
+---
+title: "Notes on Problem Sets 8-10"
+author: "Stat 341 — Spring 2017"
+date: "March 27, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(rethinking)
+require(mosaic)
+require(ggformula)
+```
+
+
+### Maximizing entropy
+
+Let $h(p) = p \log(p) + (s - p) \log(s-p)$ where $s$ is fixed.  I've used little
+h because this is a little part of the full entropy where the probabilities of
+two events sum to $s$.  I've left off the negative sign to simplify the derivative
+below.
+
+
+$h'(p) = \log(p) + p \frac{1}{p} - \log(s-p) - (s - p) \frac{1}{s-p} =  \log(p) - \log(s-p)$.  
+So $h'(p) = 0$ when $p = s-p$.  
+This means that the largest entropy happens when these two events have the same 
+probability.
+
+We play this game any time there are two unequal probabilities, so for a fixed
+number of outcomes, the the maximal entropy is acheived when all the probabilities 
+are equal.
+
+(This can also be demonstrated by clever algebra and log rules, 
+but I find this more instructive.)
+
+### PS 8 -- comparing fox models
+
+We know more now than we did when you did this assignment, so we could do things
+like compare models based on WAIC.  I was mainly looking to see that you did 
+something reasonable.  The two 2-variable models are actually quite similar, so 
+it is hard to make a strong case for one over the other.
+
+Decisions based on the predictions of the model (including the uncertainty of those 
+predictions) were probably the best option available to you at the time.
+
+Fair comparisons of the parameter estimates and uncertainty is another option.
+One common mistake was to compare the standard deviation of the posterior 
+distributions for the parameters when the units are not comparable.  It would be better
+to standardize or to look at the ratio of the standard error to the estimate.
+
+
+    
