@@ -210,6 +210,31 @@ random process with the maximal entropy among processes with $n$ outcomes.)
 \end{enumerate}
 \end{problem}
 
+\begin{solution}
+<<>>=
+H <- function(p) - sum(p[p>0] * log(p[p>0]))
+H(c(0.1, 0.3, 0.6))
+H(c(0.2, 0.2, 0.6))
+@
+
+Let $h(p) = p \log(p) + (s - p) \log(s-p)$ where $s$ is fixed.  I've used little
+h because this is a little part of the full entropy where the probabilities of
+two events sum to $s$.  I've left off the negative sign to simplify the derivative
+below.
+
+
+$h'(p) = \log(p) + p \frac{1}{p} - \log(s-p) - (s - p) \frac{1}{s-p} =  \log(p) - \log(s-p)$.
+So $h'(p) = 0$ when $p = s-p$.
+This means that the largest entropy happens when these two events have the same
+probability.
+
+We play this game any time thre are two unequal probabilities, so the the maximal
+entropy is acheived when all the probabilities are equal.
+
+(This can also be deonstrated by clever algebra and log rules,
+but I find this more instructive and less messy.)
+\end{solution}
+
 \begin{problem}
 Compute the entropy of tossing two coins two different ways:
 \begin{enumerate}
