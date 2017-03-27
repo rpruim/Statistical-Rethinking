@@ -151,6 +151,9 @@ Additional assignments will be filled in over time.
   \mand[plotting models]{6H2}
   \mand[model averaging]{6H3}
 \\ \hline
+  12 & Mon 4/2 & Rethinking 7 &
+  TBA
+\\ \hline
 \end{longtable}
 \end{center}
 
