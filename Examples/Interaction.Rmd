@@ -1,0 +1,380 @@
+---
+title: "National Economies"
+author: "Stat 341 -- Spring 2017"
+date: ''
+output:
+  pdf_document:
+    fig_height: 3.0
+  html_document:
+    fig_height: 3.0
+---
+
+```{r, setup, include=FALSE}
+# Load packages here 
+require(rethinking)
+require(mosaic)   
+require(ggformula)
+
+# Some customization.  You can alter or delete as desired (if you know what you are doing).
+trellis.par.set(theme=theme.mosaic()) # change default color scheme for lattice
+knitr::opts_chunk$set(
+  cache = TRUE,
+  tidy = FALSE,     # display code as typed
+  size = "small",   # slightly smaller font for code
+  fig.show = "hold")   # all plots at end of chunk
+theme_set(theme_light())
+```
+
+# GDP and ruggedness
+
+> Bad geography tends to be related to bad economies outside of Africa, but African economies seem immune to bad geography. (McElreath 211)
+
+How do we fit models to assess this claim?
+
+## The Data
+
+The data used for this are in the `rugged` data set.
+Naming a data frame after one of its variables is not a very good idea.
+Let's rename the data and 
+
+ * add in log of 2000 GDP, 
+ * add `continent`, which is handy for plotting later
+ * remove countries that don't have 2000 GDP data (since they won't be used in the analysis below)
+ 
+```{r, chunk7.1}
+library(rethinking)
+data(rugged)
+
+Nations <-
+  rugged %>% 
+  mutate(
+    log_gdp = log(rgdppc_2000),
+    continent = ifelse(cont_africa, "Africa", "Other")
+  ) %>% 
+  filter(! is.na(log_gdp))
+```
+
+```{r, echo = FALSE}
+gf_point(log_gdp ~ rugged + color::continent + shape:continent, 
+         data = Nations, size = 2, alpha = 0.7) %>%
+  gf_refine(scale_shape_manual(values = c(16, 21)))
+```
+
+\newpage
+
+## Approach 1: A bad approach
+
+Here's a bad idea that we will improve upon:
+
+  * split the data into two portions (African and non-African countries)
+  * fit a model with log GDP as outcome and ruggedness as predictor in each portion
+  
+**What's bad about this idea?**
+
+```{r, chunk7.1b, include = FALSE}
+# split countries into Africa and not-Africa
+Nations_A1 <- Nations %>% filter(cont_africa == 1)
+Nations_A0 <- Nations %>% filter(cont_africa == 0)
+sapply(list(All = Nations, Africa = Nations_A1, Other = Nations_A0), nrow)
+```
+
+
+
+```{r, chunk7.2, include = FALSE}
+# African nations
+m7.1 <- 
+  map(
+    alist(
+      log_gdp ~ dnorm(mu, sigma),
+      mu <- a + bR * rugged,
+      a ~ dnorm(8, 100),
+      bR ~ dnorm(0, 1),
+      sigma ~ dunif(0, 10)
+    ),
+    data = Nations_A1)
+
+# non-African nations
+m7.2 <- 
+  map(
+    alist(
+      log_gdp ~ dnorm(mu, sigma),
+      mu <- a + bR * rugged,
+      a ~ dnorm(8, 100),
+      bR ~ dnorm(0, 1),
+      sigma ~ dunif(0, 10)
+    ),
+    data = Nations_A0)
+```
+
+```{r, chunk7.3, include = FALSE}
+m7.3 <- 
+  map(
+    alist(
+      log_gdp ~ dnorm(mu, sigma),
+      mu <- a + bR * rugged,
+      a ~ dnorm(8, 100),
+      bR ~ dnorm(0, 1),
+      sigma ~ dunif(0, 10)
+    ),
+    data = Nations)
+```
+
+\vfill
+
+## Approach 2: This also isn't quite right
+
+**What is wrong with this model?**
+
+```{r, chunk7.4}
+m7.4 <- map(
+  alist(
+    log_gdp ~ dnorm(mu, sigma),
+    mu <- a + bR * rugged + bA * cont_africa,
+    a ~ dnorm(8, 100),
+    bR ~ dnorm(0, 1),
+    bA ~ dnorm(0, 1),
+    sigma ~ dunif(0, 10)
+  ),
+  data = Nations
+)
+```
+
+```{r, chunk7.5, include = FALSE}
+compare(m7.3, m7.4)
+```
+
+
+
+
+```{r, chunk7.6, include = FALSE}
+Loggdp_predict <-
+  expand.grid(
+    cont_africa = 0:1,
+    rugged = seq(from = 0, to = 8, by = 0.2)
+  ) %>%
+  mutate(
+    continent = ifelse(cont_africa, "Africa", "Other")
+  )
+m7.4_link <- link(m7.4, data = Loggdp_predict)
+  
+# add in means and intervals using m7.4
+Loggdp_predict <-
+  Loggdp_predict %>%
+  mutate(
+    m7.4.mu = apply(m7.4_link, 2, mean),
+    m7.4.lo = apply(m7.4_link, 2, PI, prob = 0.97)[1,],
+    m7.4.hi = apply(m7.4_link, 2, PI, prob = 0.97)[2,]
+  )
+```
+
+```{r, include = FALSE}
+gf_line(m7.4.mu ~ rugged + color:continent,
+        data = Loggdp_predict) %>%
+gf_ribbon(m7.4.lo + m7.4.hi ~ rugged + fill:continent,
+        data = Loggdp_predict) %>%
+  gf_point(log_gdp ~ rugged + color:continent, data = Nations) %>%
+  gf_refine(scale_x_continuous(trans = "sqrt"))
+```
+
+
+
+```{r, include = FALSE}
+m7.4.resid <- resid(m7.4)
+gf_point(m7.4.resid ~ rugged + color:continent, data = Nations) %>%
+  gf_smooth(m7.4.resid ~ rugged + color:continent, data = Nations, 
+            alpha = 0.2) %>%
+  gf_refine(scale_x_continuous(trans = "sqrt"))
+```
+
+\vfill
+
+## Approach 3: Fixing the problem
+
+**Describe a single model that allows each country group to have its 
+own intercept *and slope*.**
+
+  * Do this as many ways as you can think of.
+  
+  * Are your different ways just descriptions of the same thing or
+  are they actually different models?
+  
+  * Which formulation(s) do you like better?  Why?
+
+\vfill
+
+## Comparing Appraoches
+
+**What things can you do to compare the approaches?**
+
+  * You don't have to actually do them, just make a list of what
+    you would do and what you would look for/at.
+  * For each one, jot down the names of the R funcitons you would use.
+  * Once your list is complete, if you have time, go ahead and do the 
+  things on your list.
+   
+```{r, chunk7.7, include = FALSE}
+m7.5 <- 
+  map(
+    alist(
+      log_gdp ~ dnorm(mu, sigma),
+      mu <- a + gamma * rugged + bA * cont_africa,
+      gamma <- bR + bAR * cont_africa,
+      a ~ dnorm(8, 100),
+      bA ~ dnorm(0, 1),
+      bR ~ dnorm(0, 1),
+      bAR ~ dnorm(0, 1),
+      sigma ~ dunif(0, 10)
+    ),
+    data = Nations
+  )
+```
+
+
+```{r, chunk7.8, include = FALSE}
+compare(m7.3, m7.4, m7.5)
+```
+
+
+```{r, chunk7.9, include = FALSE}
+m7.5b <- 
+  map(
+    alist(
+      log_gdp ~ dnorm(mu, sigma),
+      mu <- a + bR * rugged + bAR * rugged * cont_africa + bA * cont_africa,
+      a ~ dnorm(8, 100),
+      bA ~ dnorm(0, 1),
+      bR ~ dnorm(0, 1),
+      bAR ~ dnorm(0, 1),
+      sigma ~ dunif(0, 10)
+    ),
+    data = Nations
+  )
+```
+
+
+```{r, chunk7.10, include = FALSE}
+m7.5_link <- link(m7.5, data = Loggdp_predict)
+  
+# add in means and intervals
+Loggdp_predict <-
+  Loggdp_predict %>%
+  mutate(
+    m7.5.mu = apply(m7.5_link, 2, mean),
+    m7.5.lo = apply(m7.5_link, 2, PI, prob = 0.97)[1,],
+    m7.5.hi = apply(m7.5_link, 2, PI, prob = 0.97)[2,]
+  )
+```
+
+
+
+```{r, include = FALSE}
+gf_line(m7.5.mu ~ rugged + color:continent,
+        data = Loggdp_predict) %>%
+gf_ribbon(m7.5.lo + m7.5.hi ~ rugged + fill:continent,
+        data = Loggdp_predict) 
+```
+
+
+```{r, chunk7.11, include = FALSE}
+# plot African nations with regression
+gf_point(log_gdp ~ rugged + color:continent, 
+         data = Nations) %>% 
+  gf_line(m7.5.mu ~ rugged + col:continent, data = Loggdp_predict) %>%
+  gf_ribbon(m7.5.lo + m7.5.hi ~ rugged + fill:continent, 
+            data = Loggdp_predict) %>%
+  gf_labs(y = "log GDP year 2000", x = "Terrain Ruggedness Index")  %>%
+  gf_facet_grid(~ continent)
+```
+
+
+
+```{r, chunk7.12, include = FALSE}
+precis(m7.5)
+```
+
+
+```{r, chunk7.13, include = FALSE}
+m7.5_post <- extract.samples(m7.5) %>%
+  mutate(
+    gamma.Africa = bR + bAR * 1,
+    gamma.notAfrica = bR + bAR * 0
+  )
+```
+
+```{r, chunk7.14, include = FALSE}
+mean(m7.5_post$gamma.Africa)
+mean(m7.5_post$gamma.notAfrica)
+```
+
+```{r, chunk7.15, include = FALSE}
+gf_dens(~gamma.Africa + color::"Africa", data = m7.5_post) %>%
+  gf_dens(~gamma.notAfrica + color::"Other", data = m7.5_post) %>%
+  gf_labs(x = "gamma")
+```
+
+
+```{r, chunk7.16, include = FALSE}
+gf_dens( ~ (gamma.Africa - gamma.notAfrica), data = m7.5_post) 
+prop( ~(gamma.Africa < gamma.notAfrica), data = m7.5_post)
+```
+
+    
+```{r, chunk7.17b, include = FALSE}
+mrugged <- median(~rugged, data = Nations); mrugged
+
+Nations <- 
+  Nations %>%
+  mutate(
+    rugged_group = ifelse( rugged > mrugged, "hi", "lo"))
+Loggdp_predict <- 
+  Loggdp_predict %>%
+  mutate(
+    rugged_group = ifelse( rugged > mrugged, "hi", "lo"))
+
+gf_ribbon(
+  m7.5.lo + m7.5.hi ~ continent + fill:rugged_group + group:rugged_group, 
+  data = Loggdp_predict %>% filter(rugged %in% c(0, 6))) %>%
+  gf_line(m7.5.mu ~ continent + color:rugged_group + group:rugged_group, 
+          data = Loggdp_predict %>% filter(rugged %in% c(0, 6))) %>%
+  gf_point( log_gdp ~ continent + color:rugged_group, data = Nations, 
+            position = position_dodge(width = 0.2), alpha = 0.5) 
+```
+
+
+```{r, chunk7.17c, include = FALSE}
+gf_ribbon(
+  m7.5.lo + m7.5.hi ~ continent + fill:rugged_group + group:rugged_group, 
+  data = Loggdp_predict %>% filter(rugged %in% c(0, 6))) %>%
+  gf_line(m7.5.mu ~ continent + color:rugged_group + group:rugged_group, 
+          data = Loggdp_predict %>% filter(rugged %in% c(0, 6))) %>%
+  gf_point( log_gdp ~ continent + color:rugged_group, data = Nations, 
+            position = position_jitterdodge(jitter.width = 0.1, dodge.width = 0.2), 
+            alpha = 0.5)
+```
+
+
+
+```{r, chunk7.17d, include = FALSE}
+quantile(Nations$rugged)
+gf_ribbon(
+  m7.5.lo + m7.5.hi ~ continent + fill:rugged_group + group:rugged_group, 
+  data = Loggdp_predict %>% filter(rugged %in% c(0.5, 2))) %>%
+  gf_line(m7.5.mu ~ continent + color:rugged_group + group:rugged_group, 
+          data = Loggdp_predict %>% filter(rugged %in% c(0.5, 2))) %>%
+  gf_point( log_gdp ~ continent + color:rugged_group, data = Nations, 
+            position = position_jitterdodge(jitter.width = 0.1, dodge.width = 0.2), 
+            alpha = 0.5)
+gf_ribbon(
+  m7.5.lo + m7.5.hi ~ continent + fill:rugged_group + group:rugged_group, 
+  data = Loggdp_predict %>% filter(rugged %in% c(0, 6))) %>%
+  gf_line(m7.5.mu ~ continent + color:"gray50" + group:rugged_group, 
+          data = Loggdp_predict %>% filter(rugged %in% c(0, 6))) %>%
+  gf_point( log_gdp ~ continent + color:rugged_group, data = Nations, 
+            position = position_jitterdodge(jitter.width = 0.1, dodge.width = 0.2), 
+            alpha = 0.5) %>%
+  gf_refine(
+    scale_fill_manual(values = c("orange", "navy"))
+  )
+              
+```
+
