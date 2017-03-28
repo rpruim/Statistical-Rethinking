@@ -1,0 +1,720 @@
+---
+title: "Statistical Rethinking (Code)"
+author: "Chapter 7"
+date: "March, 2017"
+output:
+  html_document: 
+    fig_height: 3.5
+  pdf_document: 
+    fig_height: 3.5
+---
+
+```{r, setup, include=FALSE}
+# Load packages here 
+require(rethinking)
+require(mosaic)   
+require(ggformula)
+
+# Some customization.  You can alter or delete as desired (if you know what you are doing).
+trellis.par.set(theme=theme.mosaic()) # change default color scheme for lattice
+knitr::opts_chunk$set(
+  cache = TRUE,
+  tidy = FALSE,     # display code as typed
+  size = "small",   # slightly smaller font for code
+  fig.show = "hold")   # all plots at end of chunk
+theme_set(theme_light())
+```
+
+## National Economies
+
+#### R Code 7.1
+
+Naming a data frame after one of its variables is not a very good idea.
+Let's rename the data and 
+
+ * add in log of 2000 GDP, 
+ * add `continent`, which is handy for plotting later
+ * remove countries that don't have 2000 GDP data (since they won't be used in the analysis below)
+ 
+```{r, chunk7.1}
+library(rethinking)
+data(rugged)
+
+Nations <-
+  rugged %>% 
+  mutate(
+    log_gdp = log(rgdppc_2000),
+    continent = ifelse(cont_africa, "Africa", "Other")
+  ) %>% 
+  filter(! is.na(log_gdp))
+
+dim(Nations)
+dim(rugged)
+```
+
+Here we partition the data into African and non-African nations.
+```{r, chunk7.1b}
+# split countries into Africa and not-Africa
+Nations_A1 <- Nations %>% filter(cont_africa == 1)
+Nations_A0 <- Nations %>% filter(cont_africa == 0)
+sapply(list(All = Nations, Africa = Nations_A1, Other = Nations_A0), nrow)
+```
+
+#### Scatter plot
+
+```{r}
+gf_point(log_gdp ~ rugged + color::continent, data = Nations)
+```
+
+#### R Code 7.2
+
+Here's a bad idea (because there are better ideas):  We could fit models on the African
+and non-African countries separately.
+
+```{r, chunk7.2}
+# African nations
+m7.1 <- 
+  map(
+    alist(
+      log_gdp ~ dnorm(mu, sigma),
+      mu <- a + bR * rugged,
+      a ~ dnorm(8, 100),
+      bR ~ dnorm(0, 1),
+      sigma ~ dunif(0, 10)
+    ),
+    data = Nations_A1)
+
+# non-African nations
+m7.2 <- 
+  map(
+    alist(
+      log_gdp ~ dnorm(mu, sigma),
+      mu <- a + bR * rugged,
+      a ~ dnorm(8, 100),
+      bR ~ dnorm(0, 1),
+      sigma ~ dunif(0, 10)
+    ),
+    data = Nations_A0)
+```
+
+#### R Code 7.3
+
+This models the association between GDP and ruggedness (using all the nations).
+
+```{r, chunk7.3}
+m7.3 <- 
+  map(
+    alist(
+      log_gdp ~ dnorm(mu, sigma),
+      mu <- a + bR * rugged,
+      a ~ dnorm(8, 100),
+      bR ~ dnorm(0, 1),
+      sigma ~ dunif(0, 10)
+    ),
+    data = Nations)
+```
+
+#### R Code 7.4
+
+This model includes an additional predictor: whether or not the country is in Africa).
+```{r, chunk7.4}
+m7.4 <- map(
+  alist(
+    log_gdp ~ dnorm(mu, sigma),
+    mu <- a + bR * rugged + bA * cont_africa,
+    a ~ dnorm(8, 100),
+    bR ~ dnorm(0, 1),
+    bA ~ dnorm(0, 1),
+    sigma ~ dunif(0, 10)
+  ),
+  data = Nations
+)
+```
+
+#### R Code 7.5
+
+```{r, chunk7.5}
+compare(m7.3, m7.4)
+```
+
+#### R Code 7.6
+
+This is quite different in approach to the code from the book.  
+Instead of creating two separate data sets, we can do this
+all at once, using `expand.grid()` to create a sequence 
+of `rugged` values for both in and out of Africa.  
+
+Advantages:
+
+  * less code
+  * more clarity
+  * less chance to accidentally do different things on the two halves
+  * plotting is easier because the results are all in one place
+
+At let's use better names for things as well.  In particular, we'll name the data frame
+that is collecting predictions after the thing being predicted.  (We don't want to name it after
+the model, because we will be comparing different models' predictions.)
+
+```{r, chunk7.6}
+Loggdp_predict <-
+  expand.grid(
+    cont_africa = 0:1,
+    rugged = seq(from = 0, to = 8, by = 0.2)
+  ) %>%
+  mutate(
+    continent = ifelse(cont_africa, "Africa", "Other")
+  )
+m7.4_link <- link(m7.4, data = Loggdp_predict, refresh = 0)
+  
+# add in means and intervals using m7.4
+Loggdp_predict <-
+  Loggdp_predict %>%
+  mutate(
+    m7.4.mu = apply(m7.4_link, 2, mean),
+    m7.4.lo = apply(m7.4_link, 2, PI, prob = 0.97)[1,],
+    m7.4.hi = apply(m7.4_link, 2, PI, prob = 0.97)[2,]
+  )
+```
+
+```{r}
+gf_line(m7.4.mu ~ rugged + color:continent,
+        data = Loggdp_predict) %>%
+gf_ribbon(m7.4.lo + m7.4.hi ~ rugged + fill:continent,
+        data = Loggdp_predict) 
+```
+
+With the original data overlaid
+
+```{r}
+last_plot() %>%
+  gf_point(log_gdp ~ rugged + color:continent, data = Nations)
+```
+
+A squre root transformation on the x-axis helps to spread out the cluster of
+dots near 0.
+
+```{r}
+last_plot() %>%
+  gf_refine(scale_x_continuous(trans = "sqrt"))
+```
+
+Residuals
+
+```{r}
+# computing residuals is expensive, so let's save them
+m7.4.resid <- resid(m7.4)
+gf_point(m7.4.resid ~ rugged + color:continent, data = Nations) %>%
+  gf_smooth(m7.4.resid ~ rugged + color:continent, data = Nations, alpha = 0.2)
+```
+```{r}
+last_plot() %>%
+  gf_refine(scale_x_continuous(trans = "sqrt"))
+```
+
+This reveals several things:
+
+ * there is quite a bit of scatter.  Countries in the same continent, with teh same amount of ruggedness may have quite different GDP.
+ * African and non-African countries appear to be different, but most of the difference is coming from the most rugged countries, and there aren't very many of those.
+ 
+#### R Code 7.7
+
+A model with "interaction".
+```{r, chunk7.7}
+m7.5 <- 
+  map(
+    alist(
+      log_gdp ~ dnorm(mu, sigma),
+      mu <- a + gamma * rugged + bA * cont_africa,
+      gamma <- bR + bAR * cont_africa,
+      a ~ dnorm(8, 100),
+      bA ~ dnorm(0, 1),
+      bR ~ dnorm(0, 1),
+      bAR ~ dnorm(0, 1),
+      sigma ~ dunif(0, 10)
+    ),
+    data = Nations
+  )
+```
+
+#### R Code 7.8
+
+```{r, chunk7.8}
+compare(m7.3, m7.4, m7.5)
+```
+
+#### R Code 7.9
+
+Alternative coding for `m7.5b`.
+
+```{r, chunk7.9}
+m7.5b <- 
+  map(
+    alist(
+      log_gdp ~ dnorm(mu, sigma),
+      mu <- a + bR * rugged + bAR * rugged * cont_africa + bA * cont_africa,
+      a ~ dnorm(8, 100),
+      bA ~ dnorm(0, 1),
+      bR ~ dnorm(0, 1),
+      bAR ~ dnorm(0, 1),
+      sigma ~ dunif(0, 10)
+    ),
+    data = Nations
+  )
+```
+
+#### R Code 7.10
+
+We can add the predictions from the new model to our existing `Loggdp_predict` data frame
+since we want the same rows -- just additional columns.
+
+```{r, chunk7.10}
+m7.5_link <- link(m7.5, data = Loggdp_predict, refresh = 0)
+  
+# add in means and intervals
+Loggdp_predict <-
+  Loggdp_predict %>%
+  mutate(
+    m7.5.mu = apply(m7.5_link, 2, mean),
+    m7.5.lo = apply(m7.5_link, 2, PI, prob = 0.97)[1,],
+    m7.5.hi = apply(m7.5_link, 2, PI, prob = 0.97)[2,]
+  )
+```
+
+This model looks quite different.
+
+```{r}
+gf_line(m7.5.mu ~ rugged + color:continent,
+        data = Loggdp_predict) %>%
+gf_ribbon(m7.5.lo + m7.5.hi ~ rugged + fill:continent,
+        data = Loggdp_predict) 
+```
+
+#### R Code 7.11
+
+Now let's compare the model to the data used to fit it.
+```{r, chunk7.11}
+# plot African nations with regression
+gf_point(log_gdp ~ rugged + color:continent, 
+         data = Nations) %>% 
+  gf_line(m7.5.mu ~ rugged + col:continent, data = Loggdp_predict) %>%
+  gf_ribbon(m7.5.lo + m7.5.hi ~ rugged + fill:continent, 
+            data = Loggdp_predict) %>%
+  gf_labs(y = "log GDP year 2000", x = "Terrain Ruggedness Index")  %>%
+  gf_facet_grid(~ continent)
+```
+
+#### R Code 7.12
+
+```{r, chunk7.12}
+precis(m7.5)
+```
+
+#### R Code 7.13
+
+We can compute $\gamma_i$ for each posterior sample;  $\gamma_i$ only depends on whether
+a country is in Africa or not.
+
+```{r, chunk7.13}
+m7.5_post <- extract.samples(m7.5) %>%
+  mutate(
+    gamma.Africa = bR + bAR * 1,
+    gamma.notAfrica = bR + bAR * 0
+  )
+```
+
+#### R Code 7.14
+
+Means of posterior $\gamma_i$ values.
+```{r, chunk7.14}
+mean(m7.5_post$gamma.Africa)
+mean(m7.5_post$gamma.notAfrica)
+```
+
+#### R Code 7.15
+
+Posterior distributions of $\gamma_i$'s.
+```{r, chunk7.15}
+gf_dens(~gamma.Africa + color::"Africa", data = m7.5_post) %>%
+  gf_dens(~gamma.notAfrica + color::"Other", data = m7.5_post) %>%
+  gf_labs(x = "gamma")
+```
+
+#### R Code 7.16
+
+Posterior distribution of the difference between the two $\gamma_i$ values.
+
+```{r, chunk7.16}
+gf_dens( ~ (gamma.Africa - gamma.notAfrica), data = m7.5_post) 
+prop( ~(gamma.Africa < gamma.notAfrica), data = m7.5_post)
+```
+
+#### R Code 7.17
+
+Here's the original code from the book.
+```{r, chunk7.17}
+# get minimum and maximum rugged values
+q.rugged <- range(Nations$rugged)
+
+# compute lines and confidence intervals
+mu.ruggedlo <- 
+  link(m7.5, data = data.frame(rugged = q.rugged[1], 
+                               cont_africa = 0:1),
+       refresh = 0)
+mu.ruggedlo.mean <- apply(mu.ruggedlo, 2, mean)
+mu.ruggedlo.PI <- apply(mu.ruggedlo, 2, PI)
+
+mu.ruggedhi <- 
+  link(m7.5,
+       data = data.frame(rugged = q.rugged[2], 
+                         cont_africa = 0:1),
+       refresh = 0)
+mu.ruggedhi.mean <- apply(mu.ruggedhi, 2, mean)
+mu.ruggedhi.PI <- apply(mu.ruggedhi, 2, PI)
+
+# plot it all, splitting points at median
+med.r <- median(Nations$rugged)
+ox <- ifelse(Nations$rugged > med.r, 0.05,-0.05)
+plot(
+  Nations$cont_africa + ox,
+  log(Nations$rgdppc_2000),
+  col = ifelse(Nations$rugged > med.r, rangi2, "black"),
+  xlim = c(-0.25, 1.25),
+  xaxt = "n",
+  ylab = "log GDP year 2000",
+  xlab = "Continent"
+)
+axis(1, at = c(0, 1), labels = c("other", "Africa"))
+lines(0:1, mu.ruggedlo.mean, lty = 2)
+shade(mu.ruggedlo.PI, 0:1)
+lines(0:1, mu.ruggedhi.mean, col = rangi2)
+shade(mu.ruggedhi.PI, 0:1, col = col.alpha(rangi2, 0.25))
+```
+We can simplify this a bit.
+
+  * We don't need to run `link()` again -- we've already run it.  
+  
+    We don't have the exact min and max of `rugged` in our `Loggpd_predict`
+    data, but it's close.  (And we could use a finer mesh if we wanted to.)
+    
+  * By putting a `rugged_group` variable in both data sets, we can easily
+    color/fill/group basd on that value
+    
+  * By using `position_dodge()` and our `continent` variable, we can create then
+    entire plot using just three layers.  (But notice the use of the `group`
+    aesthetic to override the default grouping that would have happened.)
+  
+    * one for the dots (dodged left and right by rugged group)
+    * one for the prediction lines
+    * one for the prediction ribbons
+    
+```{r, chunk7.17b}
+mrugged <- median(~rugged, data = Nations); mrugged
+
+Nations <- 
+  Nations %>%
+  mutate(
+    rugged_group = ifelse( rugged > mrugged, "hi", "lo"))
+Loggdp_predict <- 
+  Loggdp_predict %>%
+  mutate(
+    rugged_group = ifelse( rugged > mrugged, "hi", "lo"))
+
+gf_ribbon(
+  m7.5.lo + m7.5.hi ~ continent + fill:rugged_group + group:rugged_group, 
+  data = Loggdp_predict %>% filter(rugged %in% c(0, 6))) %>%
+  gf_line(m7.5.mu ~ continent + color:rugged_group + group:rugged_group, 
+          data = Loggdp_predict %>% filter(rugged %in% c(0, 6))) %>%
+  gf_point( log_gdp ~ continent + color:rugged_group, data = Nations, 
+            position = position_dodge(width = 0.2), alpha = 0.5) 
+```
+
+Here's a fancier version that uses jitter and doge to minimize the issue of overlapping
+dots.
+
+```{r, chunk7.17c}
+gf_ribbon(
+  m7.5.lo + m7.5.hi ~ continent + fill:rugged_group + group:rugged_group, 
+  data = Loggdp_predict %>% filter(rugged %in% c(0, 6))) %>%
+  gf_line(m7.5.mu ~ continent + color:rugged_group + group:rugged_group, 
+          data = Loggdp_predict %>% filter(rugged %in% c(0, 6))) %>%
+  gf_point( log_gdp ~ continent + color:rugged_group, data = Nations, 
+            position = position_jitterdodge(jitter.width = 0.1, dodge.width = 0.2), 
+            alpha = 0.5)
+```
+
+
+Note: This plot give a bit of a distorted view.  The dots of each color are not all at the lowest/highest value for rugged.  Using the 1st and 3rd quartiles seems fairer.  That way
+some dots of each color will be above and some below the value of ruggedness used
+for the fits shown in that color.  
+Another option would be to introduce new colors so that we are less inclined to
+draw the false conclusion.
+
+```{r, chunk7.17d}
+quantile(Nations$rugged)
+gf_ribbon(
+  m7.5.lo + m7.5.hi ~ continent + fill:rugged_group + group:rugged_group, 
+  data = Loggdp_predict %>% filter(rugged %in% c(0.5, 2))) %>%
+  gf_line(m7.5.mu ~ continent + color:rugged_group + group:rugged_group, 
+          data = Loggdp_predict %>% filter(rugged %in% c(0.5, 2))) %>%
+  gf_point( log_gdp ~ continent + color:rugged_group, data = Nations, 
+            position = position_jitterdodge(jitter.width = 0.1, dodge.width = 0.2), 
+            alpha = 0.5)
+gf_ribbon(
+  m7.5.lo + m7.5.hi ~ continent + fill:rugged_group + group:rugged_group, 
+  data = Loggdp_predict %>% filter(rugged %in% c(0, 6))) %>%
+  gf_line(m7.5.mu ~ continent + color:"gray50" + group:rugged_group, 
+          data = Loggdp_predict %>% filter(rugged %in% c(0, 6))) %>%
+  gf_point( log_gdp ~ continent + color:rugged_group, data = Nations, 
+            position = position_jitterdodge(jitter.width = 0.1, dodge.width = 0.2), 
+            alpha = 0.5) %>%
+  gf_refine(
+    scale_fill_manual(values = c("orange", "navy"))
+  )
+              
+```
+
+As expected, the differences don't look as pronounced 
+when we use the 1st and 3rd quartiles.  
+
+
+## Tulips 
+
+#### R Code 7.18
+
+```{r, chunk7.18}
+library(rethinking)
+data(tulips)
+Tulips <- tulips # local version where we will add some variables later
+glimpse(Tulips)
+```
+
+#### R Code 7.19
+
+```{r, chunk7.19, error = TRUE}
+m7.6 <- map(
+  alist(
+    blooms ~ dnorm(mu, sigma),
+    mu <- a + bW * water + bS * shade,
+    a ~ dnorm(0, 100),
+    bW ~ dnorm(0, 100),
+    bS ~ dnorm(0, 100),
+    sigma ~ dunif(0, 100)
+  ),
+  data = Tulips
+)
+m7.7 <- map(
+  alist(
+    blooms ~ dnorm(mu, sigma),
+    mu <- a + bW * water + bS * shade + bWS * water * shade,
+    a ~ dnorm(0, 100),
+    bW ~ dnorm(0, 100),
+    bS ~ dnorm(0, 100),
+    bWS ~ dnorm(0, 100),
+    sigma ~ dunif(0, 100)
+  ),
+  data = Tulips
+)
+```
+
+#### R Code 7.20
+
+```{r, chunk7.20}
+m7.6 <- map(
+  alist(
+    blooms ~ dnorm(mu, sigma),
+    mu <- a + bW * water + bS * shade,
+    a ~ dnorm(0, 100),
+    bW ~ dnorm(0, 100),
+    bS ~ dnorm(0, 100),
+    sigma ~ dunif(0, 100)
+  ),
+  data = Tulips,
+  method = "Nelder-Mead",
+  control = list(maxit = 1e4)
+)
+m7.7 <- map(
+  alist(
+    blooms ~ dnorm(mu, sigma),
+    mu <- a + bW * water + bS * shade + bWS * water * shade,
+    a ~ dnorm(0, 100),
+    bW ~ dnorm(0, 100),
+    bS ~ dnorm(0, 100),
+    bWS ~ dnorm(0, 100),
+    sigma ~ dunif(0, 100)
+  ),
+  data = Tulips,
+  method = "Nelder-Mead",
+  control = list(maxit = 1e4)
+)
+```
+
+#### R Code 7.21
+
+```{r, chunk7.21}
+coeftab(m7.6, m7.7)
+```
+
+#### R Code 7.22
+
+```{r, chunk7.22, error = TRUE}
+compare(m7.6, m7.7)
+```
+
+#### R Code 7.23
+
+```{r, chunk7.23}
+Tulips <- 
+  Tulips %>%
+  mutate(
+    shade.c = shade - mean(shade),
+    water.c = water - mean(water)
+  )
+```
+
+#### R Code 7.24
+
+```{r, chunk7.24}
+m7.8 <- map(
+  alist(
+    blooms ~ dnorm(mu, sigma),
+    mu <- a + bW * water.c + bS * shade.c,
+    a ~ dnorm(130, 100),
+    bW ~ dnorm(0, 100),
+    bS ~ dnorm(0, 100),
+    sigma ~ dunif(0, 100)
+  ),
+  data = Tulips,
+  start = list(
+    a = mean(Tulips$blooms),
+    bW = 0,
+    bS = 0,
+    sigma = sd(Tulips$blooms)
+  )
+)
+m7.9 <- map(
+  alist(
+    blooms ~ dnorm(mu, sigma),
+    mu <- a + bW * water.c + bS * shade.c + bWS * water.c * shade.c,
+    a ~ dnorm(130, 100),
+    bW ~ dnorm(0, 100),
+    bS ~ dnorm(0, 100),
+    bWS ~ dnorm(0, 100),
+    sigma ~ dunif(0, 100)
+  ),
+  data = Tulips,
+  start = list(
+    a = mean(Tulips$blooms),
+    bW = 0,
+    bS = 0,
+    bWS = 0,
+    sigma = sd(Tulips$blooms)
+  )
+)
+coeftab(m7.8, m7.9)
+```
+
+#### R Code 7.25
+
+```{r, chunk7.25}
+k <- coef(m7.7); k
+k[1] + k[2] * 2 + k[3] * 2 + k[4] * 2 * 2
+# here's a safer/clearer way
+k["a"] + k["bW"] * 2 + k["bS"] * 2 + k["bWS"] * 2 * 2
+# annoyed by the name a?  (parens required here)
+(k["a"] + k["bW"] * 2 + k["bS"] * 2 + k["bWS"] * 2 * 2) %>% setNames("mu.S2W2")
+```
+
+#### R Code 7.26
+
+```{r, chunk7.26}
+k <- coef(m7.9); k
+(k["a"] + k["bW"] * 0 + k["bS"] * 0 + k["bWS"] * 0 * 0) %>% setNames("mu.S0W0")
+```
+
+#### R Code 7.27
+
+```{r, chunk7.27}
+precis(m7.9)
+```
+
+#### R Code 7.28
+
+```{r, chunk7.28}
+Blooms_predict <- 
+  expand.grid(shade.c = -1:1, water.c = -1:1)
+
+m7.8.link <- link(m7.8, data = Blooms_predict, refresh = 0)
+m7.9.link <- link(m7.9, data = Blooms_predict, refresh = 0)
+
+# We can put two models together above and below or side by side.
+# Above/below let's us use facets to compare the model predictions.
+
+Blooms_predict <- 
+  bind_rows(
+    Blooms_predict %>%
+      mutate(
+        mu = apply(m7.8.link, 2, mean),
+        lo = apply(m7.8.link, 2, PI, 0.97)[1,],
+        hi = apply(m7.8.link, 2, PI, 0.97)[2,],
+        model = "m7.8"
+      ),
+    Blooms_predict %>%
+      mutate(
+        mu = apply(m7.9.link, 2, mean),
+        lo = apply(m7.9.link, 2, PI, 0.97)[1,],
+        hi = apply(m7.9.link, 2, PI, 0.97)[2,],
+        model = "m7.9"
+      )
+  )
+
+gf_ribbon(lo + hi ~ shade.c, data = Blooms_predict, fill = "navy")  %>%
+gf_line(mu ~ shade.c, data = Blooms_predict)  %>%
+gf_point(blooms ~ shade.c, data = Tulips, alpha = 0.7, color = "navy") %>%
+gf_facet_grid(model ~ paste0("water.c = ", water.c))
+```
+
+#### R Code 7.29
+
+```{r, chunk7.29}
+m7.x <- lm(blooms ~ water + shade + water:shade, data = Tulips)
+coef(m7.x)
+```
+
+#### R Code 7.30
+
+```{r, chunk7.30}
+# short hand notation
+m7.x <- lm(blooms ~ water*shade, data = Tulips)
+coef(m7.x)
+```
+
+#### R Code 7.31
+
+```{r, chunk7.31}
+m7.x <- lm(blooms ~ water*shade - shade, data = Tulips)
+coef(m7.x)
+```
+
+#### R Code 7.32
+
+```{r, chunk7.32}
+m7.x <- lm(blooms ~ water*shade*bed, data = Tulips)
+coef(m7.x)
+```
+
+#### R Code 7.33
+
+```{r, chunk7.33}
+x <- z <- w <- 1
+colnames(model.matrix( ~ x * z * w))
+```
+
+#### R Code 7.34
+
+```{r, chunk7.34}
+data(nettle)
+Nettle <-
+  nettle %>%
+  mutate(lang.per.cap = num.lang / k.pop)
+head(Nettle, 3)
+```
