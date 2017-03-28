@@ -9,6 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE, cache = TRUE)
 require(rethinking)
 require(mosaic)
+set.seed(12345)
 ```
 
 
@@ -365,7 +366,7 @@ since the model assumes that all the births are independent and have the same pr
 of being male, any subset of the births should look reasonable under this assumption.
 
 The homework asks you to check a few things.  Here is another.  Let's consider whether 
-21 is a reasonable number of families to have two boys.  If $p$ is the true proption of 
+21 is a reasonable number of families to have two boys.  If $p$ is the true proportion of 
 boys, and births are independent, then $p^2$ should be the proportion of families with
 two boys.
 
@@ -383,3 +384,6 @@ but not enough to force us to throw out the model (at least not by itself).
 ```{r}
 prop( ~ (rbinom(1e5, size = 100, prob = (BirthSex.post$p)^2) <= 21))
 ```
+
+
+
