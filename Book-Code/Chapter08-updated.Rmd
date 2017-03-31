@@ -1,0 +1,396 @@
+---
+title: "Statistical Rethinking (Code)"
+author: "Chapter 9"
+date: "March, 2017"
+output:
+  html_document: 
+    fig_height: 3.5
+  pdf_document: 
+    fig_height: 3.5
+---
+
+```{r, setup, include = FALSE}
+# Load packages here 
+require(rethinking)
+require(mosaic)   
+require(ggformula)
+
+# Some customization.  You can alter or delete as desired (if you know what you are doing).
+trellis.par.set(theme=theme.mosaic()) # change default color scheme for lattice
+knitr::opts_chunk$set(
+  cache = TRUE,
+  tidy = FALSE,     # display code as typed
+  size = "small",   # slightly smaller font for code
+  fig.show = "hold")   # all plots at end of chunk
+theme_set(theme_light())
+```
+
+#### R Code 8.1
+
+The book does this as a chunk of code.  It is much nicer to wrap this
+in a function and to return a data frame that makes plotting nicer.
+
+```{r, chunk8.1}
+KingMarkov <- function(
+  num_steps = 1e5,
+  population = 1:10,
+  start = 10) {
+  
+  num_islands <- length(population)
+  position <- rep(NA, num_steps)  # trick to pre-alocate memory
+  current <- start
+  
+  for (i in 1:num_steps) {
+    # record current position
+    position[i] <- current
+    
+    # flip coin to generate proposal
+    proposal <- 1 + (current + sample(c(-2, 0), size = 1) ) %% 10
+    
+    # move?
+    prob_move <- population[proposal] / population[current]
+    current <- ifelse(runif(1) < prob_move, proposal, current)
+  }
+  data_frame(
+    step = 1:num_steps,
+    position = position
+  )
+}
+```
+
+In the short-run, any particular path looks like a jumble, and the desired
+probabilities are not acheived.
+```{r, chunk8.1b}
+set.seed(100)
+KM <- KingMarkov(100)
+gf_point(position ~ step, data = KM)
+tally( ~ position, data = KM)
+```
+With a larger number of steps, things are still not perfect, but the are 
+much closer to the target probabilities.
+
+```{r, chunk8.1c}
+set.seed(123)
+KM <- KingMarkov(1e5)
+gf_histogram( ~ position, data = KM, binwidth = 1)
+KM %>% 
+  group_by(position) %>%
+  summarise(n = n(), prop = n / 1e5) %>%
+  mutate(target = (1:10)/(sum(1:10)))
+```
+
+Alternatively, we can propose any island instead of just neighboring islands.
+
+```{r, chunk8.1d}
+KingMarkov2 <- function(
+  num_steps = 1e5,
+  population = 1:10,
+  start = 10) {
+  
+  num_islands <- length(population)
+  position <- rep(NA, num_steps)  # trick to pre-alocate memory
+  current <- start
+  
+  for (i in 1:num_steps) {
+    # record current position
+    position[i] <- current
+    
+    # propose any one of the other islands
+    proposal <- sample(setdiff(1:num_islands, current), 1)
+    
+    # move?
+    prob_move <- population[proposal] / population[current]
+    current <- ifelse(runif(1) < prob_move, proposal, current)
+  }
+  data_frame(
+    step = 1:num_steps,
+    position = position
+  )
+}
+```
+
+The mixing is faster now.
+```{r, chunk8.1e}
+set.seed(100)
+KM2 <- KingMarkov2(100)
+gf_point(position ~ step, data = KM2)
+tally( ~ position, data = KM2)
+```
+With a larger number of steps, things are still not perfect, but the are 
+much closer to the target probabilities.
+
+```{r, chunk8.1f}
+set.seed(123)
+KM2 <- KingMarkov2(1e5)
+gf_histogram( ~ position, data = KM2, binwidth = 1)
+KM2 %>% 
+  group_by(position) %>%
+  summarise(n = n(), prop = n / 1e5) %>%
+  mutate(target = (1:10)/(sum(1:10)))
+```
+
+#### R Code 8.2
+
+```{r, chunk8.2}
+library(rethinking)
+data(rugged)
+Nations <- rugged %>% 
+  mutate(log_gdp = log(rgdppc_2000)) %>%
+  filter(!is.na(rgdppc_2000))
+```
+
+#### R Code 8.3
+
+```{r, chunk8.3}
+m8.1 <- map(
+  alist(
+    log_gdp ~ dnorm(mu, sigma),
+    mu <- a + bR * rugged + bA * cont_africa + bAR * rugged * cont_africa,
+    a ~ dnorm(0, 100),
+    bR ~ dnorm(0, 10),
+    bA ~ dnorm(0, 10),
+    bAR ~ dnorm(0, 10),
+    sigma ~ dunif(0, 10)
+  ),
+  data = Nations
+)
+precis(m8.1)
+```
+
+#### R Code 8.4
+
+Restrict to 3 variables
+
+```{r, chunk8.4}
+Nations.trim <- Nations %>% select(log_gdp, rugged, cont_africa)
+str(Nations.trim)
+```
+
+#### R Code 8.4
+
+Fit with Stan:
+```{r, chunk8.5}
+m8.1stan <- map2stan(
+  alist(
+    log_gdp ~ dnorm(mu, sigma),
+    mu <- a + bR * rugged + bA * cont_africa + bAR * rugged * cont_africa,
+    a ~ dnorm(0, 100),
+    bR ~ dnorm(0, 10),
+    bA ~ dnorm(0, 10),
+    bAR ~ dnorm(0, 10),
+    sigma ~ dcauchy(0, 2)
+  ),
+  data = Nations.trim
+)
+```
+
+#### R Code 8.6
+
+```{r, chunk8.6}
+precis(m8.1stan)
+```
+
+#### R Code 8.7
+
+```{r, chunk8.7}
+m8.1stan_4chains <- map2stan(m8.1stan, chains = 4, cores = 4)
+precis(m8.1stan_4chains)
+```
+
+#### R Code 8.8
+
+```{r, chunk8.8}
+m8.1s.post <- extract.samples(m8.1stan)
+str(m8.1s.post)
+```
+
+#### R Code 8.9
+
+The `rethinking` package includes methods for `pairs()`.
+
+```{r, chunk8.9}
+pairs(m8.1s.post)
+```
+
+#### R Code 8.10
+
+```{r, chunk8.10}
+pairs(m8.1stan)
+```
+
+#### R Code 8.11
+
+```{r, chunk8.11}
+show(m8.1stan)
+```
+
+#### R Code 8.12
+
+```{r, chunk8.12}
+plot(m8.1stan)
+```
+
+#### R Code 8.13
+
+```{r, chunk8.13}
+y <- c(-1, 1)
+m8.2 <- map2stan(
+  alist(y ~ dnorm(mu, sigma),
+        mu <- alpha),
+  data = list(y = y),
+  start = list(alpha = 0, sigma = 1),
+  chains = 2, cores = 2,
+  iter = 4000, warmup = 1000
+)
+```
+
+#### R Code 8.14
+
+```{r, chunk8.14}
+precis(m8.2)
+plot(m8.2)
+stancode(m8.2)
+```
+
+#### R Code 8.15
+
+```{r, chunk8.15}
+m8.3 <- map2stan(
+  alist(
+    y ~ dnorm(mu, sigma),
+    mu <- alpha,
+    alpha ~ dnorm(1, 10),
+    sigma ~ dcauchy(0, 1)
+  ),
+  data = list(y = y),
+  start = list(alpha = 0, sigma = 1),
+  chains = 2,
+  iter = 4000,
+  warmup = 1000
+)
+precis(m8.3)
+
+```
+
+#### R Code 8.16
+
+```{r, chunk8.16}
+D <-
+  data_frame(
+    i = 1:1e4,
+    y = rcauchy(1e4, 0, 5),
+    mu = cumsum(y) / i
+  )
+gf_line(mu ~ i, data = D)
+```
+
+#### R Code 8.17
+
+```{r, chunk8.17}
+y <- rnorm(100, mean = 0, sd = 1)
+```
+
+#### R Code 8.18
+
+```{r, chunk8.18}
+m8.4 <- map2stan(
+  alist(y ~ dnorm(mu, sigma),
+        mu <- a1 + a2,
+        sigma ~ dcauchy(0, 1)),
+  data = list(y = y),
+  start = list(a1 = 0, a2 = 0, sigma = 1),
+  chains = 2, cores = 2,
+  iter = 4000,
+  warmup = 1000
+)
+precis(m8.4)
+```
+
+#### R Code 8.19
+
+```{r, chunk8.19}
+m8.5 <- map2stan(
+  alist(
+    y ~ dnorm(mu, sigma),
+    mu <- a1 + a2,
+    a1 ~ dnorm(0, 10),
+    a2 ~ dnorm(0, 10),
+    sigma ~ dcauchy(0, 1)
+  ),
+  data = list(y = y),
+  start = list(a1 = 0, a2 = 0, sigma = 1),
+  chains = 2, cores = 2,
+  iter = 4000, warmup = 1000
+)
+precis(m8.5)
+```
+
+#### R Code 8.20
+
+```{r, chunk8.20}
+mp <- map2stan(
+  alist(a ~ dnorm(0, 1),
+        b ~ dcauchy(0, 1)),
+  data = list(y = 1),
+  start = list(a = 0, b = 0),
+  iter = 1e4,
+  warmup = 100,
+  WAIC = FALSE
+)
+```
+
+#### R Code 8.21
+
+Simulating height and leg length.
+```{r, chunk8.21}
+N <- 100                            # number of individuals
+Legs <- 
+  data_frame(
+    height = rnorm(N, 10, 2),          # sim total height of each
+    leg_prop = runif(N, 0.4, 0.5),     # leg as proportion of height
+    leg_left  = leg_prop * height + rnorm(N, 0, 0.02),
+    leg_right = leg_prop * height + rnorm(N, 0, 0.02)
+  )
+```
+
+#### R Code 8.22
+
+```{r, chunk8.22}
+m5.8s <- map2stan(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + bl * leg_left + br * leg_right,
+    a ~ dnorm(10, 100),
+    bl ~ dnorm(2, 10),
+    br ~ dnorm(2, 10),
+    sigma ~ dcauchy(0, 1)
+  ),
+  data = Legs,
+  chains = 4, cores = 4,
+  start = list(
+    a = 10, bl = 0,
+    br = 0, sigma = 1
+  )
+)
+```
+
+#### R Code 8
+
+```{r, chunk8.23}
+m5.8s2 <- map2stan(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + bl * leg_left + br * leg_right,
+    a ~ dnorm(10, 100),
+    bl ~ dnorm(2, 10),
+    br ~ dnorm(2, 10) & T[0, ],
+    sigma ~ dcauchy(0, 1)
+  ),
+  data = Legs,
+  chains = 4, cores = 4,
+  start = list(
+    a = 10, bl = 0,
+    br = 0, sigma = 1
+  )
+)
+```
