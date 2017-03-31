@@ -409,9 +409,11 @@ MetropolisNorm <- function(
     
     log_post_current <- 
       dnorm(mu[i], 0, 1, log = TRUE) + 
+      dnorm(log_sigma[i], 0, 1, log = TRUE) + 
       sum(dnorm(y, mu[i], exp(log_sigma[i]), log = TRUE))
     log_post_proposal <- 
       dnorm(mu[i + 1], 0, 1, log = TRUE) + 
+      dnorm(log_sigma[i + 1], 0, 1, log = TRUE) + 
       sum(dnorm(y, mu[i + 1], exp(log_sigma[i+1]), log = TRUE))
     prob_move <- exp(log_post_proposal - log_post_current)
     
