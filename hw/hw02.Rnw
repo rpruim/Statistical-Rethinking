@@ -151,8 +151,15 @@ Additional assignments will be filled in over time.
   \mand[plotting models]{6H2}
   \mand[model averaging]{6H3}
 \\ \hline
-  12 & Mon 4/2 & Rethinking 7 &
-  TBA
+12 & Mon 4/2 &
+Rethinking 7 &
+\mand[loo]{7H3}
+\\
+ & & Rethinking 8 &
+\mand{8H3 -- 8H4}
+\\
+& & & Note: You can find replacement code for the code the author
+provides in the usual place online.
 \\ \hline
 \end{longtable}
 \end{center}
@@ -184,6 +191,9 @@ m <- map(
     sigma ~ dunif(0, 50)),
   data = Howell.train
 )
+-2 * logLik(m)
+mu <- link(m, data = Howell.test) %>% apply(2, mean)
+-2 * sum(dnorm(Howell.test$height, mu, coef(m)["sigma"], log = TRUE))
 @
 
 \subsubsection*{R Code 6.32}
