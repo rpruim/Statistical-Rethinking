@@ -468,7 +468,7 @@ Sims <-
       setNames(c("dev.in", "dev.out"))  # give better names to vars
   )
 
-# reshape, then comput mean and PI
+# reshape, then compute mean and PI
 Sims2 <-
   Sims %>%
   gather(dev_type, dev, dev.in : dev.out) %>%
@@ -701,7 +701,7 @@ This plot provides a much better view of parameters on different scales.
 # neocortex from 0.5 to 0.8
 Milk.predict <- data_frame(
   neocortex = seq(from = 0.5, to = 0.8, length.out = 30),
-  kcal.per.g = 0,
+  # kcal.per.g = 0,    # this isn't needed.  not sure why author does it
   mass = 4.5  # average mass
 )
 pred.m6.14 <- link(m6.14, data = Milk.predict)
