@@ -151,7 +151,7 @@ Additional assignments will be filled in over time.
   \mand[plotting models]{6H2}
   \mand[model averaging]{6H3}
 \\ \hline
-12 & Mon 4/2 &
+12 & Wed 4/5 &
 Rethinking 7 &
 \mand[loo]{7H3}
 \\
