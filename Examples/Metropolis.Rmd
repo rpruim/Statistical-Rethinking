@@ -451,14 +451,79 @@ Tours <-  bind_rows(Tour1, Tour0.2, Tour5)
 prop(~ move | size, data = Tours)
 ```
 
+#### Density plots
+
 ```{r}
-gf_line(mu ~ step | size ~ ., data = Tours)
+gf_dens( ~ mu | size ~ ., data = Tours) 
+gf_dens( ~ log_sigma | size ~ ., data = Tours)
+```
+
+#### Trace plots
+
+```{r}
+gf_line(mu ~ step | size ~ ., data = Tours) 
 gf_line(log_sigma ~ step | size ~ ., data = Tours)
 ```
 
+#### Comparing Multiple Chains
+
+If we run multiple chains with different starting points and different random
+choices, we hope to see similar trace plots.  After all, we don't want our
+analysis to be an analysis of starting points or of random choices.
+
+```{r}
+Tour1a <- MetropolisNorm(y = y, num_steps = 5000, size = 1) %>% mutate(chain = "A")
+Tour1b <- MetropolisNorm(y = y, num_steps = 5000, size = 1) %>% mutate(chain = "B")
+Tour1c <- MetropolisNorm(y = y, num_steps = 5000, size = 1, start = list(mu = 10, log_sigma = 5)) %>% mutate(chain = "C")
+Tour1d <- MetropolisNorm(y = y, num_steps = 5000, size = 1, start = list(mu = 10, log_sigma = 5)) %>% mutate(chain = "D")
+Tours1 <- bind_rows(Tour1a, Tour1b, Tour1c, Tour1d)
+```
+
+```{r}
+gf_line(mu ~ step + color::chain, alpha = 0.5, data = Tours1)
+gf_line(mu ~ step + color::chain, alpha = 0.5, data = Tours1) %>% 
+  gf_facet_grid( chain ~ .)
+```
+
+
+#### Comparing Chains to an Ideal Chain
+
+Not all posteriors are normal, but here's what a chain would look like if the posterior is normal and there
+is no correlation between draws.
+
+```{r}
+Ideal <- data_frame(step = 1:5000, mu = rnorm(5000, 2, 1), size = 0)
+gf_line(mu ~ step | size, data = Tours %>% bind_rows(Ideal))
+```
+
+If the draws are correlated, then we might get more ideal behavior if we 
+selected only a subset -- every 10th or every 20th value, for example. This is
+the idea behind "effective sample size".  The effective sample size of a
+correlated chain is the length of an ideal chain that contains as much
+independent information as the correlated chain.
+
+```{r}
+gf_line(mu ~ step | size ~ ., data = bind_rows(Tours, Ideal) %>% filter(step %% 10 == 0)) %>%
+  gf_labs(title = "Every 10th draw")
+
+gf_line(mu ~ step | size ~ ., data = bind_rows(Tours, Ideal) %>% filter(step %% 20 == 0)) %>%
+  gf_labs(title = "Every 20th draw")
+```
+
+If we thin to every 20th value, our chain with `size = 1` is looking quite
+similar to the ideal chain.  The chain with `size = 0.2` still moves to slowly
+from place to place, and the chain with `size = 5` is still getting stuck in one
+place too long.  So tuning paramters will affect the effective sample size.
+
+#### Discarding the first portion of a chain
+
+
+The first portion of a chain may not work as well.  This portion is typically
+removed from the analysis since it is more an indication of the starting values
+used than the long-run sampling from the posterior.
+
 ```{r}
 gf_line(log_sigma ~ step | size ~ ., data = Tours) 
-  
 
 gf_path(log_sigma ~ mu | size ~ (step > 500), data = Tours, alpha = 0.5) %>%
   gf_density2d(log_sigma ~ mu, data = Tours) 
@@ -476,61 +541,12 @@ These are really issues with all MCMC algorithms, not just the Metropolis versio
   * Samples are correlated -- although the long-run probabilities are right,
   the next stop is not independent of the current one
     * so our effective posterior sample size isn't as big as it appears
-  
 
-## King Monty
+As it turns out, we won't use the Metropolis or Metropolis-Hastings algorithms in practice.
+Insead we will use Stan, which shares many features in common with the Metropolis algorithm
+but has demonsrated that it works well in a wide variety (but not all) models with better
+performance.  Performance improvements are especially notable when the number of parameters in 
+the model is large.
 
-King Monty's Kingdom is along a river.  There are no towns, per se, people just build their homes here and there along the river.  King Monty's royal boat must cruise
-up and down the river spending more time where there is higher population density.
-His advisor suggests that they speed up the boat when the population is becoming
-less dense and slow down the boat when the population becomes more dense.  This
-only require them to know how fast the density is currently changing, but nothing
-else.
-
-## King Monty and Stan
-
-Stan uses a more complicated algorithm than the Metropolis algorithm, 
-generically called Hamiltonian Monte Carlo (or hybrid Monte Carlo -- 
-HMC in either case). 
-
-  * **adds a layer of automatic tuning** to make it easier to use.
-  
-### HMC Big ideas
-
-  * Uses a physics model -- simulate a sliding puck on a landscape that 
-  is proportional to the log of the posterior.
-  * Steepness of the log-posterior determines how far the puck slides before
-  turning around. 
-  * Works only for continuous parameter spaces (so not for King Markov) -- 
-  we need (partial) derivatives of the log-posterior.
-  * Tuning parameters include mass of puck and force applied to get it moving.
-
-### Stan requires checking some diagnostics
-
-HMC is much more efficient for certain types of models (especially models
-with lots of paramters), but doesn't work in all cases.  We will need to learn 
-how to check whether the things appear to be working.
-
-### Fitting (simple) models with Stan is easy
-
-We can use `map2stan()` which use the same syntax as `map()`.  But we need to
-to two additional things:
-
- * Precompute any variable transformations and store them in new variables.
- 
- * Remove any missing data from the data frame -- even if it is in variables 
- that the model doesn't use.
- 
-`map2stan()` doesn't do everything Stan can do, but it will get us started quickly.
-
-Big advantage to Stan:
-
- * We no longer need to assume that the posterior distributions are multivariate
- normal.  
- 
-   * This was OK for the linear models we have been studying, but there are 
-   many modeling situations where this is not a reasonable assumption.
- 
  
 
-    
