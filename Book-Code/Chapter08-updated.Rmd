@@ -1,6 +1,6 @@
 ---
 title: "Statistical Rethinking (Code)"
-author: "Chapter 9"
+author: "Chapter 8"
 date: "March, 2017"
 output:
   html_document: 
@@ -161,9 +161,13 @@ precis(m8.1)
 
 Restrict to 3 variables
 
+```{r, chunk8.4a}
+inspect(Nations)   # Note: several variables have missing values
+```
+
 ```{r, chunk8.4}
 Nations.trim <- Nations %>% select(log_gdp, rugged, cont_africa)
-str(Nations.trim)
+inspect(Nations.trim)  # No missing values among these three variables
 ```
 
 #### R Code 8.4
@@ -328,15 +332,14 @@ precis(m8.5)
 #### R Code 8.20
 
 ```{r, chunk8.20}
-mp <- map2stan(
-  alist(a ~ dnorm(0, 1),
-        b ~ dcauchy(0, 1)),
-  data = list(y = 1),
-  start = list(a = 0, b = 0),
-  iter = 1e4,
-  warmup = 100,
-  WAIC = FALSE
-)
+mp <- 
+  map2stan(
+    alist(a ~ dnorm(0, 1), b ~ dcauchy(0, 1)),
+    data = list(y = rep(1,10)),
+    start = list(a = 0, b = 0),
+    iter = 1e4, warmup = 100,
+    WAIC = FALSE
+  )
 ```
 
 #### R Code 8.21

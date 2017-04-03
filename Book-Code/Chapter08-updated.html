@@ -9,7 +9,7 @@
 <meta name="generator" content="pandoc" />
 
 
-<meta name="author" content="Chapter 9" />
+<meta name="author" content="Chapter 8" />
 
 
 <title>Statistical Rethinking (Code)</title>
@@ -117,7 +117,7 @@ $(document).ready(function () {
 
 
 <h1 class="title toc-ignore">Statistical Rethinking (Code)</h1>
-<h4 class="author"><em>Chapter 9</em></h4>
+<h4 class="author"><em>Chapter 8</em></h4>
 <h4 class="date"><em>March, 2017</em></h4>
 
 </div>
@@ -271,12 +271,131 @@ precis(m8.1)</code></pre>
 <div id="r-code-8.4" class="section level4">
 <h4>R Code 8.4</h4>
 <p>Restrict to 3 variables</p>
+<pre class="r"><code>inspect(Nations)   # Note: several variables have missing values</code></pre>
+<pre><code>## 
+## categorical variables:  
+##      name  class levels   n missing
+## 1 isocode factor    234 170       0
+## 2 country factor    234 170       0
+##                                    distribution
+## 1 AGO (0.6%), ALB (0.6%), ARE (0.6%) ...       
+## 2 Albania (0.6%), Algeria (0.6%) ...           
+## 
+## quantitative variables:  
+##                      name   class         min           Q1        median
+## 1                  isonum integer    8.000000   212.500000    417.500000
+## 2                  rugged numeric    0.003000     0.442250      0.979500
+## 3             rugged_popw numeric    0.003000     0.283000      0.579500
+## 4            rugged_slope numeric    0.005000     1.287750      2.792500
+## 5              rugged_lsd numeric    0.001000     0.118500      0.284500
+## 6               rugged_pc numeric    0.000000     1.954250     12.117500
+## 7               land_area numeric    3.000000  2800.500000  14148.000000
+## 8                     lat numeric  -41.806000     2.225000     17.238000
+## 9                     lon numeric -174.847000   -11.578000     19.452500
+## 10                   soil numeric    0.000000    18.617250     40.438000
+## 11                 desert numeric    0.000000     0.000000      0.000000
+## 12               tropical numeric    0.000000     0.000000      1.617000
+## 13             dist_coast numeric    0.000000     0.039000      0.164500
+## 14             near_coast numeric    0.000000     8.887290     33.900950
+## 15              gemstones integer    0.000000     0.000000      0.000000
+## 16            rgdppc_2000 numeric  466.647000  1880.829250   5314.742000
+## 17          rgdppc_1950_m numeric  289.153000   660.201500   1410.050500
+## 18          rgdppc_1975_m numeric  512.136000  1047.390500   2518.934000
+## 19          rgdppc_2000_m numeric  216.950000  1352.019000   3637.062000
+## 20     rgdppc_1950_2000_m numeric  469.724000  1007.087250   2423.392000
+## 21             q_rule_law numeric   -2.050000    -0.807000     -0.203000
+## 22            cont_africa integer    0.000000     0.000000      0.000000
+## 23              cont_asia integer    0.000000     0.000000      0.000000
+## 24            cont_europe integer    0.000000     0.000000      0.000000
+## 25           cont_oceania integer    0.000000     0.000000      0.000000
+## 26     cont_north_america integer    0.000000     0.000000      0.000000
+## 27     cont_south_america integer    0.000000     0.000000      0.000000
+## 28              legor_gbr integer    0.000000     0.000000      0.000000
+## 29              legor_fra integer    0.000000     0.000000      0.000000
+## 30              legor_soc integer    0.000000     0.000000      0.000000
+## 31              legor_deu integer    0.000000     0.000000      0.000000
+## 32              legor_sca integer    0.000000     0.000000      0.000000
+## 33             colony_esp integer    0.000000     0.000000      0.000000
+## 34             colony_gbr integer    0.000000     0.000000      0.000000
+## 35             colony_fra integer    0.000000     0.000000      0.000000
+## 36             colony_prt integer    0.000000     0.000000      0.000000
+## 37             colony_oeu integer    0.000000     0.000000      0.000000
+## 38        africa_region_n integer    0.000000     0.000000      0.000000
+## 39        africa_region_s integer    0.000000     0.000000      0.000000
+## 40        africa_region_w integer    0.000000     0.000000      0.000000
+## 41        africa_region_e integer    0.000000     0.000000      0.000000
+## 42        africa_region_c integer    0.000000     0.000000      0.000000
+## 43          slave_exports numeric    0.000000     0.000000      0.000000
+## 44 dist_slavemkt_atlantic numeric    3.647000     5.121000      5.712000
+## 45   dist_slavemkt_indian numeric    0.032000     2.682000      7.643000
+## 46  dist_slavemkt_saharan numeric    0.310000     2.642000      3.353000
+## 47   dist_slavemkt_redsea numeric    0.064000     2.293000      3.515000
+## 48               pop_1400 integer    0.000000 78895.750000 348220.000000
+## 49       european_descent numeric    0.000000     0.000000      3.450000
+## 50                log_gdp numeric    6.145573     7.539468      8.578233
+##              Q3          max          mean           sd   n missing
+## 1  6.452500e+02 8.940000e+02  4.293941e+02 2.550246e+02 170       0
+## 2  1.957250e+00 6.202000e+00  1.333182e+00 1.168467e+00 170       0
+## 3  9.882500e-01 4.165000e+00  7.352353e-01 5.944169e-01 170       0
+## 4  5.575500e+00 1.759500e+01  3.813453e+00 3.382790e+00 170       0
+## 5  5.565000e-01 1.559000e+00  3.793471e-01 3.280890e-01 170       0
+## 6  3.133000e+01 9.024900e+01  1.878796e+01 2.026075e+01 170       0
+## 7  5.445675e+04 1.638134e+06  7.325901e+04 1.954638e+05 170       0
+## 8  4.007150e+01 6.499000e+01  1.856515e+01 2.503034e+01 170       0
+## 9  4.484400e+01 1.714780e+02  1.517724e+01 6.562387e+01 170       0
+## 10 5.623850e+01 1.000000e+02  3.956522e+01 2.557699e+01 170       0
+## 11 0.000000e+00 7.728000e+01  3.423624e+00 1.108766e+01 170       0
+## 12 9.770950e+01 1.000000e+02  4.054217e+01 4.534055e+01 170       0
+## 13 4.085000e-01 2.206000e+00  3.180941e-01 4.177448e-01 170       0
+## 14 9.612520e+01 1.000000e+02  4.560283e+01 4.030518e+01 170       0
+## 15 0.000000e+00 2.641540e+05  6.513724e+03 3.292907e+04 170       0
+## 16 1.310015e+04 5.779209e+04  9.094893e+03 9.699991e+03 170       0
+## 17 2.413561e+03 2.887814e+04  2.392489e+03 3.370413e+03 124      46
+## 18 6.451961e+03 2.546500e+04  4.630049e+03 4.825339e+03 124      46
+## 19 8.219698e+03 2.844885e+04  6.675195e+03 7.049194e+03 145      25
+## 20 6.096618e+03 2.011999e+04  4.466931e+03 4.632625e+03 124      46
+## 21 6.430000e-01 2.023000e+00 -3.151479e-02 9.554936e-01 169       1
+## 22 1.000000e+00 1.000000e+00  2.882353e-01 4.542793e-01 170       0
+## 23 0.000000e+00 1.000000e+00  2.352941e-01 4.254356e-01 170       0
+## 24 0.000000e+00 1.000000e+00  2.176471e-01 4.138652e-01 170       0
+## 25 0.000000e+00 1.000000e+00  5.882353e-02 2.359892e-01 170       0
+## 26 0.000000e+00 1.000000e+00  1.352941e-01 3.430479e-01 170       0
+## 27 0.000000e+00 1.000000e+00  6.470588e-02 2.467329e-01 170       0
+## 28 1.000000e+00 1.000000e+00  3.176471e-01 4.669368e-01 170       0
+## 29 1.000000e+00 1.000000e+00  4.411765e-01 4.979946e-01 170       0
+## 30 0.000000e+00 1.000000e+00  1.823529e-01 3.872759e-01 170       0
+## 31 0.000000e+00 1.000000e+00  2.941176e-02 1.694569e-01 170       0
+## 32 0.000000e+00 1.000000e+00  2.941176e-02 1.694569e-01 170       0
+## 33 0.000000e+00 1.000000e+00  1.176471e-01 3.231416e-01 170       0
+## 34 1.000000e+00 1.000000e+00  3.352941e-01 4.734878e-01 170       0
+## 35 0.000000e+00 1.000000e+00  1.647059e-01 3.720107e-01 170       0
+## 36 0.000000e+00 1.000000e+00  3.529412e-02 1.850673e-01 170       0
+## 37 0.000000e+00 1.000000e+00  2.352941e-02 1.520254e-01 170       0
+## 38 0.000000e+00 1.000000e+00  2.352941e-02 1.520254e-01 170       0
+## 39 0.000000e+00 1.000000e+00  5.294118e-02 2.245776e-01 170       0
+## 40 0.000000e+00 1.000000e+00  8.823529e-02 2.844747e-01 170       0
+## 41 0.000000e+00 1.000000e+00  7.647059e-02 2.665347e-01 170       0
+## 42 0.000000e+00 1.000000e+00  4.705882e-02 2.123903e-01 170       0
+## 43 0.000000e+00 3.610000e+06  9.189638e+04 3.746049e+05 170       0
+## 44 1.013100e+01 1.639300e+01  7.496224e+00 3.349753e+00  49     121
+## 45 9.300000e+00 1.583300e+01  6.660061e+00 4.079243e+00  49     121
+## 46 4.821000e+00 6.637000e+00  3.539510e+00 1.578397e+00  49     121
+## 47 4.423000e+00 6.465000e+00  3.412878e+00 1.502717e+00  49     121
+## 48 1.191290e+06 8.094376e+07  2.037433e+06 8.723193e+06 168       2
+## 49 8.990525e+01 1.000000e+02  3.405936e+01 4.218259e+01 152      18
+## 50 9.480244e+00 1.096461e+01  8.517117e+00 1.166495e+00 170       0</code></pre>
 <pre class="r"><code>Nations.trim &lt;- Nations %&gt;% select(log_gdp, rugged, cont_africa)
-str(Nations.trim)</code></pre>
-<pre><code>## 'data.frame':    170 obs. of  3 variables:
-##  $ log_gdp    : num  7.49 8.22 9.93 9.41 7.79 ...
-##  $ rugged     : num  0.858 3.427 0.769 0.775 2.688 ...
-##  $ cont_africa: int  1 0 0 0 0 0 0 0 0 1 ...</code></pre>
+inspect(Nations.trim)  # No missing values among these three variables</code></pre>
+<pre><code>## 
+## quantitative variables:  
+##          name   class      min       Q1   median       Q3      max
+## 1     log_gdp numeric 6.145573 7.539468 8.578233 9.480244 10.96461
+## 2      rugged numeric 0.003000 0.442250 0.979500 1.957250  6.20200
+## 3 cont_africa integer 0.000000 0.000000 0.000000 1.000000  1.00000
+##        mean        sd   n missing
+## 1 8.5171175 1.1664946 170       0
+## 2 1.3331824 1.1684674 170       0
+## 3 0.2882353 0.4542793 170       0</code></pre>
 </div>
 <div id="r-code-8.4-1" class="section level4">
 <h4>R Code 8.4</h4>
@@ -685,15 +804,14 @@ gf_line(mu ~ i, data = D)</code></pre>
 </div>
 <div id="r-code-8.20" class="section level4">
 <h4>R Code 8.20</h4>
-<pre class="r"><code>mp &lt;- map2stan(
-  alist(a ~ dnorm(0, 1),
-        b ~ dcauchy(0, 1)),
-  data = list(y = 1),
-  start = list(a = 0, b = 0),
-  iter = 1e4,
-  warmup = 100,
-  WAIC = FALSE
-)</code></pre>
+<pre class="r"><code>mp &lt;- 
+  map2stan(
+    alist(a ~ dnorm(0, 1), b ~ dcauchy(0, 1)),
+    data = list(y = rep(1,10)),
+    start = list(a = 0, b = 0),
+    iter = 1e4, warmup = 100,
+    WAIC = FALSE
+  )</code></pre>
 <pre><code>## 
 ## SAMPLING FOR MODEL 'a ~ dnorm(0, 1)' NOW (CHAIN 1).
 ## WARNING: The initial buffer, adaptation window, and terminal buffer
@@ -716,9 +834,9 @@ gf_line(mu ~ i, data = D)</code></pre>
 ## Chain 1, Iteration: 8100 / 10000 [ 81%]  (Sampling)
 ## Chain 1, Iteration: 9100 / 10000 [ 91%]  (Sampling)
 ## Chain 1, Iteration: 10000 / 10000 [100%]  (Sampling)
-##  Elapsed Time: 0.001429 seconds (Warm-up)
-##                0.153421 seconds (Sampling)
-##                0.15485 seconds (Total)
+##  Elapsed Time: 0.001631 seconds (Warm-up)
+##                0.163983 seconds (Sampling)
+##                0.165614 seconds (Total)
 ## 
 ## 
 ## SAMPLING FOR MODEL 'a ~ dnorm(0, 1)' NOW (CHAIN 1).
@@ -728,8 +846,8 @@ gf_line(mu ~ i, data = D)</code></pre>
 ## 
 ## Chain 1, Iteration: 1 / 1 [100%]  (Sampling)
 ##  Elapsed Time: 4e-06 seconds (Warm-up)
-##                2.3e-05 seconds (Sampling)
-##                2.7e-05 seconds (Total)</code></pre>
+##                2.4e-05 seconds (Sampling)
+##                2.8e-05 seconds (Total)</code></pre>
 </div>
 <div id="r-code-8.21" class="section level4">
 <h4>R Code 8.21</h4>
