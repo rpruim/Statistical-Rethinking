@@ -3,8 +3,8 @@ title: "The Metropolis Algorithm"
 author: "Stat 341 — Spring 2017"
 date: "March 29, 2017"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}

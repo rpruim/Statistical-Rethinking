@@ -3,8 +3,8 @@ title: "Hamiltonian Monte Carlo (HMC) Algorithm and Stan"
 author: "Stat 341 — Spring 2017"
 date: "April 2017"
 output:
-  pdf_document: default
   html_document: default
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
