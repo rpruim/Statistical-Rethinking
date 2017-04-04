@@ -1,0 +1,285 @@
+---
+title: "Tulips"
+author: "Stat 341 — Spring 2017"
+date: ""
+output:
+  html_document: 
+    fig_height: 3.0
+  pdf_document: 
+    fig_height: 2.5
+    fig_width: 3.0
+---
+
+```{r, setup, include=FALSE}
+# Load packages here 
+require(rethinking)
+require(mosaic)   
+require(ggformula)
+
+# Some customization.  You can alter or delete as desired (if you know what you are doing).
+trellis.par.set(theme=theme.mosaic()) # change default color scheme for lattice
+knitr::opts_chunk$set(
+  cache = TRUE,
+  tidy = FALSE,     # display code as typed
+  size = "small",   # slightly smaller font for code
+  fig.show = "hold")   # all plots at end of chunk
+theme_set(theme_light())
+```
+
+
+### The data
+
+```{r, chunk7.18}
+library(rethinking)
+data(tulips)
+Tulips <- 
+  tulips %>%
+  mutate(
+    shade.c = shade - mean(shade),
+    water.c = water - mean(water)
+  )
+glimpse(Tulips)
+```
+
+
+## Two Models
+
+**How do these models differ?**
+
+  * What might lead you to fit one but not the other?
+
+  * How would you compare them to decide which model is "better" if you fit both?
+  
+
+```{r, chunk7.20}
+m7.6 <- map(
+  alist(
+    blooms ~ dnorm(mu, sigma),
+    mu <- a + bW * water + bS * shade,
+    c(a, bW, bS) ~ dnorm(0, 100),
+    sigma ~ dunif(0, 100)
+  ),
+  data = Tulips,
+  method = "Nelder-Mead", control = list(maxit = 1e4)
+)
+m7.7 <- map(
+  alist(
+    blooms ~ dnorm(mu, sigma),
+    mu <- a + bW * water + bS * shade + bWS * water * shade,
+    c(a, bW, bS, bWS) ~ dnorm(0, 100),
+    sigma ~ dunif(0, 100)
+  ),
+  data = Tulips,
+  method = "Nelder-Mead", control = list(maxit = 1e4)
+)
+```
+
+## 9 groups, 9 parameters?
+
+In this set-up, there are only 9 possible combinations of 
+water and shade.
+
+```{r}
+tally(shade ~ water, data = Tulips)
+```
+
+**What predictions do our previous two models give for each of the 9 combinations?**
+
+```{r, chunk7.21}
+coeftab(m7.6, m7.7)
+```
+
+**Design a model that has 9 parameters, one for each combination.**
+
+ * There is more than one way to do this, choose a way that makes 
+   the parameters as interpretable as you can.
+   
+**What are the advantages/disadvantages of such a model?**
+
+**In what sense is this a "model with interaction"?**
+
+  * How can you tell by looking at the paramters whether this 
+  is a large or small "interaction effect"?
+
+
+```{r}
+m7.7a <- map(
+  alist(
+    blooms ~ dnorm(mu, sigma),
+    mu <- bS[shade] + bW[water] + 
+      gamma22 * (shade == 2) * (water == 2) +
+      gamma23 * (shade == 2) * (water == 3) +
+      gamma32 * (shade == 3) * (water == 2) +
+      gamma33 * (shade == 3) * (water == 3),
+    bS[shade] ~ dnorm(100, 100),
+    bW[water] ~ dnorm(100, 100),
+    c(gamma22, gamma23, gamma32, gamma33) ~ dnorm(0, 100),
+    sigma ~ dunif(0, 100)
+  ),
+  data = Tulips,
+  method = "Nelder-Mead", control = list(maxit = 1e4)
+)
+coef(m7.7a)
+```
+
+### Six Degrees of freedom
+
+A better way to see the strength of the interaction effect
+is to fit a model without interaction terms.
+
+**Design a model with 6 parameters that is the previosu model "minus interaction."**
+
+  * Reparameterize if that is more convenient.
+
+
+```{r}
+m7.7b <- map(
+  alist(
+    blooms ~ dnorm(mu, sigma),
+    mu <- bS[shade] + bW[water],
+    bS[shade] ~ dnorm(100, 100),
+    bW[water] ~ dnorm(100, 100),
+    sigma ~ dunif(0, 100)
+  ),
+  data = Tulips,
+  method = "Nelder-Mead", control = list(maxit = 1e4)
+)
+coef(m7.7b)
+compare(m7.6, m7.7, m7.7a, m7.7b)
+```
+
+```{r, chunk7.22, error = TRUE}
+compare(m7.6, m7.7)
+```
+
+
+```{r, chunk7.24}
+m7.8 <- map(
+  alist(
+    blooms ~ dnorm(mu, sigma),
+    mu <- a + bW * water.c + bS * shade.c,
+    a ~ dnorm(130, 100),
+    c(bW, bS) ~ dnorm(0, 100),
+    sigma ~ dunif(0, 100)
+  ),
+  data = Tulips,
+  start = list( a = mean(Tulips$blooms), bW = 0, bS = 0, sigma = sd(Tulips$blooms))
+)
+m7.9 <- map(
+  alist(
+    blooms ~ dnorm(mu, sigma),
+    mu <- a + bW * water.c + bS * shade.c + bWS * water.c * shade.c,
+    a ~ dnorm(130, 100),
+    c(bW, bS, bWS) ~ dnorm(0, 100),
+    sigma ~ dunif(0, 100)
+  ),
+  data = Tulips,
+  start = list(a = mean(Tulips$blooms), bW = 0, bS = 0, bWS = 0, 
+               sigma = sd(Tulips$blooms))
+)
+coeftab(m7.8, m7.9)
+```
+
+**What does each model predict for a flower bed that gets 
+two units of sun and two units of water?**
+
+
+```{r, chunk7.25, include = FALSE}
+k <- coef(m7.7); k
+(k["a"] + k["bW"] * 2 + k["bS"] * 2 + k["bWS"] * 2 * 2) %>% setNames("mu.S2W2")
+```
+
+#### R Code 7.26
+
+```{r, chunk7.26}
+k <- coef(m7.9); k
+(k["a"] + k["bW"] * 0 + k["bS"] * 0 + k["bWS"] * 0 * 0) %>% setNames("mu.S0W0")
+```
+
+#### R Code 7.27
+
+```{r, chunk7.27}
+precis(m7.9)
+```
+
+#### R Code 7.28
+
+```{r, chunk7.28}
+Blooms_predict <- 
+  expand.grid(shade.c = -1:1, water.c = -1:1)
+
+m7.8.link <- link(m7.8, data = Blooms_predict)
+m7.9.link <- link(m7.9, data = Blooms_predict)
+
+# We can put two models together above and below or side by side.
+# Above/below let's us use facets to compare the model predictions.
+
+Blooms_predict <- 
+  bind_rows(
+    Blooms_predict %>%
+      mutate(
+        mu = apply(m7.8.link, 2, mean),
+        lo = apply(m7.8.link, 2, PI, 0.97)[1,],
+        hi = apply(m7.8.link, 2, PI, 0.97)[2,],
+        model = "m7.8"
+      ),
+    Blooms_predict %>%
+      mutate(
+        mu = apply(m7.9.link, 2, mean),
+        lo = apply(m7.9.link, 2, PI, 0.97)[1,],
+        hi = apply(m7.9.link, 2, PI, 0.97)[2,],
+        model = "m7.9"
+      )
+  )
+
+gf_ribbon(lo + hi ~ shade.c, data = Blooms_predict, fill = "navy")  %>%
+gf_line(mu ~ shade.c, data = Blooms_predict)  %>%
+gf_point(blooms ~ shade.c, data = Tulips, alpha = 0.7, color = "navy") %>%
+gf_facet_grid(model ~ paste0("water.c = ", water.c))
+```
+
+#### R Code 7.29
+
+```{r, chunk7.29}
+m7.x <- lm(blooms ~ water + shade + water:shade, data = Tulips)
+coef(m7.x)
+```
+
+#### R Code 7.30
+
+```{r, chunk7.30}
+# short hand notation
+m7.x <- lm(blooms ~ water*shade, data = Tulips)
+coef(m7.x)
+```
+
+#### R Code 7.31
+
+```{r, chunk7.31}
+m7.x <- lm(blooms ~ water*shade - shade, data = Tulips)
+coef(m7.x)
+```
+
+#### R Code 7.32
+
+```{r, chunk7.32}
+m7.x <- lm(blooms ~ water*shade*bed, data = Tulips)
+coef(m7.x)
+```
+
+#### R Code 7.33
+
+```{r, chunk7.33}
+x <- z <- w <- 1
+colnames(model.matrix( ~ x * z * w))
+```
+
+#### R Code 7.34
+
+```{r, chunk7.34}
+data(nettle)
+Nettle <-
+  nettle %>%
+  mutate(lang.per.cap = num.lang / k.pop)
+head(Nettle, 3)
+```

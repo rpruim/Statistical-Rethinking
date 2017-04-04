@@ -1,0 +1,1295 @@
+---
+title: "Statistical Rethinking (Code)"
+author: "Chapter 4"
+date: "February, 2017"
+output:
+  html_document: default
+  pdf_document: default
+params:
+  original: no
+  updated: yes
+---
+
+```{r, opts.label = "original", results = "asis", echo = FALSE}
+cat("The original code from *Statistical Rethinking* is shown below.")
+cat("\n\n")
+```
+
+```{r, opts.label = "updated", results = "asis", echo = FALSE}
+cat(paste(
+"Code from *Statistical Rethinking* modified by R Pruim is shown below.  Differences to the oringal include:",
+"",
+"  * a preference for putting data into containers (data frames, mostly), rather than working with lose vectors.",
+"  * use of `lattice` and `ggplot2` rather than base graphics",
+"  * use of `tidyverse` for data transformation",
+"  * better (in my opinion) naming conventions",
+sep = "\n"
+))
+cat("\n\n")
+```
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(mosaic)
+require(rethinking)
+
+knitr::opts_template$set(
+  original = list(eval = params$original, include = params$original),
+  updated = list(eval = params$updated, include = params$updated))
+
+trellis.par.set(theme = theme.mosaic())
+theme_set(theme_minimal())
+set.seed(123)   # get same random draws each time the file is processed.
+```
+
+
+## R code 4.1
+
+```{r, chunk4.1}
+pos <- replicate(1000, sum(runif(16, -1, 1)))
+```
+
+## R code 4.2
+
+```{r, chunk4.2}
+prod(1 + runif(12, 0, 0.1))
+```
+
+## R code 4.3
+
+```{r, chunk4.3, opts.label = "original"}
+growth <- replicate(10000, prod(1 + runif(12, 0, 0.1)))
+dens(growth, norm.comp = TRUE)
+```
+
+```{r, chunk4.3a, opts.label = "updated"}
+growth <- replicate(10000, prod(1 + runif(12, 0, 0.1)))
+densityplot(~ growth)
+```
+
+## R code 4.4
+
+```{r, chunk4.4}
+big <- replicate(10000, prod(1 + runif(12, 0, 0.5)))
+small <- replicate(10000, prod(1 + runif(12, 0, 0.01)))
+```
+
+## R code 4.5
+
+```{r, chunk4.5}
+log.big <- replicate(10000, log(prod(1 + runif(12, 0, 0.5))))
+```
+
+## R code 4.6
+
+```{r, chunk4.6, opts.label = "original"}
+w <- 6
+n <- 9
+
+p_grid <- seq(from = 0,
+              to = 1,
+              length.out = 100)
+posterior <- dbinom(w, n, p_grid) * dunif(p_grid, 0, 1)
+posterior <- posterior / sum(posterior)
+```
+
+```{r, chunk4.6a, opts.label = "updated"}
+w <- 6
+n <- 9
+
+Water9 <-
+  expand.grid(
+    p = seq(from = 0, to = 1, by = 0.01)) %>%
+  mutate(prior = dunif(p, 0, 1),
+         likelihood = dbinom(w, n, p),
+         posterior.raw = prior * likelihood,
+         posterior1 = posterior.raw / sum(posterior.raw),
+         posterior = posterior1 / 0.01
+  )
+
+xyplot(prior + posterior ~ p, data = Water9, type = "l")
+```
+
+## R code 4.7
+
+```{r, chunk4.7, opts.label = "original"}
+library(rethinking)
+data(Howell1)
+d <- Howell1
+```
+
+```{r, chunk4.7a, opts.label = "updated"}
+library(rethinking)
+data(Howell1)
+```
+
+
+## R code 4.8
+
+```{r, chunk4.8, opts.label = "original"}
+str(d)
+```
+
+```{r, chunk4.8a, opts.label = "updated"}
+str(Howell1)
+glimpse(Howell1)
+```
+
+## R code 4.9
+
+```{r, chunk4.9, results = "hide", opts.label = "original"}
+d$height
+```
+
+```{r, chunk4.9a, results = "hide"}
+Howell1$height
+```
+
+## R code 4.10
+
+```{r, chunk4.10, opts.label = "original"}
+d2 <- d[d$age >= 18,]
+```
+
+```{r, chunk4.10a, opts.label = "updated"}
+HowellAdults <- Howell1 %>% filter(age >= 18)
+```
+
+
+## R code 4.11
+
+```{r, chunk4.11, opts.label = "original"}
+curve(dnorm(x, 178, 20), from = 100, to = 250)
+```
+
+```{r, chunk4.11a, opts.label = "updated"}
+plotDist("norm", mean = 178, sd = 20)
+```
+
+
+## R code 4.12
+
+```{r, chunk4.12, opts.label = "original"}
+curve(dunif(x, 0, 50), from = -10, to = 60)
+```
+
+```{r, chunk4.12a, opts.label = "updated"}
+plotDist("unif", min = 0, max = 50)
+```
+
+## R code 4.13
+
+```{r, chunk4.13, opts.label = "original"}
+sample_mu <- rnorm(1e4, 178, 20)
+sample_sigma <- runif(1e4, 0, 50)
+prior_h <- rnorm(1e4, sample_mu, sample_sigma)
+dens(prior_h)
+```
+
+```{r, chunk4.13a, opts.label = "updated"}
+PriorSample <- data_frame(
+  mu     = rnorm(1e4, 178, 20),
+  sigma  = runif(1e4, 0, 50),
+  height = rnorm(1e4, mu, sigma)
+)
+densityplot( ~ height, data = PriorSample)
+```
+
+## R code 4.14
+
+```{r, chunk4.14, opts.label = "original"}
+mu.list <- seq(from = 140,
+               to = 160,
+               length.out = 200)   # Note: this is a vector in R
+sigma.list <- seq(from = 4,
+                  to = 9,
+                  length.out = 200)  # This is also a vector
+
+post <- expand.grid(mu = mu.list, sigma = sigma.list)
+post$LL <- sapply(1:nrow(post), function(i)
+  sum(dnorm(
+    d2$height,
+    mean = post$mu[i],
+    sd = post$sigma[i],
+    log = TRUE
+  )))
+post$prod <- post$LL + dnorm(post$mu, 178, 20, TRUE) +
+  dunif(post$sigma, 0, 50, TRUE)
+post$prob <- exp(post$prod - max(post$prod))
+```
+
+
+
+```{r, chunk4.14a, opts.label = "updated"}
+llnorm <- function(x, mu, sigma) { 
+  sum(dnorm(x, mean = mu, sd = sigma, log = TRUE))
+}
+# use all of x for each mu-sigma combo
+llnorm <- Vectorize(llnorm, c("mu", "sigma"))
+                
+HowellAdultsGrid <-
+  expand.grid(
+    mu = seq(from = 140, to = 160, length.out = 200), 
+    sigma = seq(from = 4, to = 9, length.out = 200)) %>% 
+  mutate(
+    logprior = 
+      dnorm(mu, 178, 20, log = TRUE) +
+      dunif(sigma, 0, 50, log = TRUE),
+    loglik = llnorm(HowellAdults$height, mu, sigma),
+    posterior.log = logprior + loglik,
+    posterior.raw = exp(posterior.log - max(posterior.log)),
+    posterior = posterior.raw / sum(posterior.raw)
+  )
+```
+
+
+## R code 4.15
+
+```{r, chunk4.15, opts.label = "original"}
+contour_xyz(post$mu, post$sigma, post$prob)
+```
+
+```{r, chunk4.15a, opts.label = "updated"}
+contourplot(posterior ~ mu + sigma, data = HowellAdultsGrid)
+
+```
+
+## R code 4.16
+
+```{r, chunk4.16, opts.label = "original"}
+image_xyz(post$mu, post$sigma, post$prob)
+```
+
+```{r, chunk4.16a, opts.label = "updated"}
+levelplot(posterior ~ mu + sigma, data = HowellAdultsGrid, contour = TRUE)
+levelplot(posterior.log ~ mu + sigma, data = HowellAdultsGrid, contour = TRUE)
+```
+## R code 4.17
+
+```{r, chunk4.17, opts.label = "original"}
+sample.rows <- sample(1:nrow(post),
+                      size = 1e4,
+                      replace = TRUE,
+                      prob = post$prob)
+sample.mu <- post$mu[sample.rows]
+sample.sigma <- post$sigma[sample.rows]
+```
+
+```{r, chunk4.17a, opts.label = "updated"}
+PosteriorSample <- 
+  sample(HowellAdultsGrid, size = 1e4, replace = TRUE, 
+         prob = HowellAdultsGrid$posterior)
+```
+
+## R code 4.18
+
+```{r, chunk4.18, opts.label = "original"}
+plot(
+  sample.mu,
+  sample.sigma,
+  cex = 0.5,
+  pch = 16,
+  col = col.alpha(rangi2, 0.1)
+)
+```
+
+```{r, chunk4.18a, opts.label = "updated"}
+xyplot(sigma ~  mu, data = PosteriorSample,
+  cex = 0.5,
+  pch = 16,
+  col = col.alpha(rangi2, 0.1)
+)
+
+ggplot(PosteriorSample, aes(x = mu, y = sigma)) +
+  geom_point(alpha = 0.2) +
+  geom_density2d() 
+       
+ggplot(PosteriorSample, aes(x = mu, y = sigma)) +
+  geom_hex() 
+       
+```
+
+## R code 4.19
+
+```{r, chunk4.19, opts.label = "original"}
+dens(sample.mu)
+dens(sample.sigma)
+```
+
+```{r, chunk4.19a, opts.label = "updated"}
+densityplot( ~ mu, data = PosteriorSample)
+densityplot( ~ sigma, data = PosteriorSample)
+```
+
+## R code 4.20
+
+```{r, chunk4.20, opts.label = "original"}
+HPDI(sample.mu)
+HPDI(sample.sigma)
+```
+
+```{r, chunk4.20a, opts.label = "updated"}
+HPDI(PosteriorSample$mu)
+HPDI(PosteriorSample$sigma)
+```
+
+## R code 4.21
+
+```{r, chunk4.21, opts.label = "original"}
+d3 <- sample(d2$height, size = 20)
+```
+
+```{r, chunk4.21a, opts.label = "updated"}
+# sample only heights
+sample(HowellAdults$height, size = 20)
+# sample complete rows
+sample(HowellAdults, size = 20)
+```
+
+## R code 4.22
+
+```{r, chunk4.22, opts.label = "original"}
+mu.list <- seq(from = 150,
+               to = 170,
+               length.out = 200)
+sigma.list <- seq(from = 4,
+                  to = 20,
+                  length.out = 200)
+post2 <- expand.grid(mu = mu.list, sigma = sigma.list)
+post2$LL <- sapply(1:nrow(post2), function(i)
+  sum(dnorm(
+    d3,
+    mean = post2$mu[i],
+    sd = post2$sigma[i],
+    log = TRUE
+  )))
+post2$prod <- post2$LL + dnorm(post2$mu, 178, 20, TRUE) +
+  dunif(post2$sigma, 0, 50, TRUE)
+post2$prob <- exp(post2$prod - max(post2$prod))
+sample2.rows <- sample(
+  1:nrow(post2),
+  size = 1e4,
+  replace = TRUE,
+  prob = post2$prob
+)
+sample2.mu <- post2$mu[sample2.rows]
+sample2.sigma <- post2$sigma[sample2.rows]
+plot(
+  sample2.mu,
+  sample2.sigma,
+  cex = 0.5,
+  col = col.alpha(rangi2, 0.1),
+  xlab = "mu",
+  ylab = "sigma",
+  pch = 16
+)
+```
+
+```{r, chunk4.22a, opts.label = "updated"}
+llnorm <- function(x, mu, sigma) { 
+  sum(dnorm(x, mean = mu, sd = sigma, log = TRUE))
+}
+# use all of x for each mu-sigma combo
+llnorm <- Vectorize(llnorm, c("mu", "sigma"))
+
+Howell20 <- sample(HowellAdults, 20)
+                
+Howell20Grid <-
+  expand.grid(
+    mu = seq(from = 140, to = 160, by = 0.1),
+    sigma = seq(from = 2, to = 12, by = 0.1)) %>% 
+  mutate(
+    logprior = 
+      dnorm(mu, 178, 20, log = TRUE) +
+      dunif(sigma, 0, 50, log = TRUE),
+    loglik = llnorm(Howell20$height, mu, sigma),
+    posterior.log = logprior + loglik,
+    posterior.raw = exp(posterior.log - max(posterior.log)),
+    posterior = posterior.raw / sum(posterior.raw)
+  )
+
+Howell20Posterior <- 
+  sample(Howell20Grid, size = 1e4,
+         replace = TRUE, 
+         prob = Howell20Grid$posterior)
+
+xyplot(sigma ~ mu, data = Howell20Posterior,
+  cex = 0.5, alpha = 0.1,
+  xlab = expression(mu), ylab = expression(sigma),
+  pch = 16
+)
+
+ggplot(Howell20Posterior, aes(x = mu, y = sigma)) +
+  geom_point(alpha = 0.1) + 
+  geom_density2d() +
+  labs(x = expression(mu), y = expression(sigma))
+```
+
+## R code 4.23
+
+```{r, chunk4.23, opts.label = "original"}
+dens(sample2.sigma, norm.comp = TRUE)
+```
+
+```{r, chunk4.23a, opts.label = "updated"}
+densityplot( ~ sigma, data = Howell20Posterior)
+histogram( ~ sigma, data = Howell20Posterior, width = 0.1, fit = "normal")
+xqqmath( ~ sigma, data = Howell20Posterior)
+```
+
+## R code 4.24
+
+```{r, chunk4.24, opts.label = "original"}
+library(rethinking)
+data(Howell1)
+d <- Howell1
+d2 <- d[d$age >= 18, ]
+```
+
+```{r, chunk4.24a, opts.label = "updated"}
+library(rethinking)
+data(Howell1)
+HowellAdults <- Howell1 %>% filter(age >= 18)
+```
+
+## R code 4.25
+
+```{r, chunk4.25}
+flist <- 
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu ~ dnorm(178, 20),
+    sigma ~ dunif(0, 50))
+```
+
+## R code 4.26
+
+```{r, chunk4.26, opts.label = "original"}
+m4.1 <- map(flist, data = d2)
+```
+
+```{r, chunk4.26a, opts.label = "updated"}
+m4.1 <- map(flist, data = HowellAdults)
+```
+
+## R code 4.27
+
+```{r, chunk4.27}
+precis(m4.1)
+```
+
+## R code 4.28
+
+```{r, chunk4.28, opts.label = "original"}
+start <- list(mu = mean(d2$height),
+              sigma = sd(d2$height))
+```
+
+```{r, chunk4.28a, opts.label = "updated"}
+start <- 
+  list(
+    mu  = mean( ~ height, data = HowellAdults),
+    sigma = sd( ~ height, data = HowellAdults))
+```
+
+## R code 4.29
+
+```{r, chunk4.29, opts.label = "original"}
+m4.2 <- map(alist(height ~ dnorm(mu, sigma),
+                      mu ~ dnorm(178, 0.1),
+                   sigma ~ dunif(0, 50)),
+            data = d2)
+precis(m4.2)
+```
+
+```{r, chunk4.29a, opts.label = "updated"}
+m4.2 <- map(alist(height ~ dnorm(mu, sigma),
+                      mu ~ dnorm(178, 0.1),
+                   sigma ~ dunif(0, 50)),
+            data = HowellAdults)
+precis(m4.2)
+```
+
+## R code 4.30
+
+```{r, chunk4.30}
+vcov(m4.1)
+```
+
+## R code 4.31
+
+```{r, chunk4.31}
+diag(vcov(m4.1))
+cov2cor(vcov(m4.1))
+```
+
+## R code 4.32
+
+```{r, chunk4.32}
+library(rethinking)
+post <- extract.samples(m4.1, n = 1e4)
+head(post)
+```
+
+## R code 4.33
+
+```{r, chunk4.33}
+precis(post)
+```
+
+## R code 4.34
+
+```{r, chunk4.34}
+library(MASS)
+post <- mvrnorm(n = 1e4,
+                mu = coef(m4.1),
+                Sigma = vcov(m4.1))
+```
+
+## R code 4.5
+
+```{r, chunk4.35, opts.label = "original"}
+m4.1_logsigma <- map(alist(
+  height ~ dnorm(mu, exp(log_sigma)),
+  mu ~ dnorm(178, 20),
+  log_sigma ~ dnorm(2, 10)
+), data = d2)
+```
+
+```{r, chunk4.35a, opts.label = "updated"}
+m4.1_logsigma <- 
+  map(
+    alist(
+      height ~ dnorm(mu, exp(log_sigma)),
+      mu ~ dnorm(178, 20),
+      log_sigma ~ dnorm(2, 10)
+    ), data = HowellAdults)
+```
+
+## R code 4.36
+
+```{r, chunk4.36, opts.label = "original"}
+post <- extract.samples(m4.1_logsigma)
+sigma <- exp(post$log_sigma)
+```
+
+
+```{r, chunk4.36a, opts.label = "updated"}
+m4.1_logsimga.post <- 
+  extract.samples(m4.1_logsigma) %>%
+  mutate(sigma = exp(log_sigma))
+```
+
+# Section 4.4
+
+## R code 4.37
+
+```{r, chunk4.37, opts.label = "original"}
+plot(d2$height ~ d2$weight)
+```
+
+```{r, chunk4.37a, opts.label = "updated"}
+xyplot(height ~ weight, data = HowellAdults)
+```
+
+## R code 4.38
+
+```{r, chunk4.38, opts.label = "original"}
+# load data again, since it's a long way back
+library(rethinking)
+data(Howell1)
+d <- Howell1
+d2 <- d[d$age >= 18,]
+
+# fit model
+m4.3 <- map(alist(
+  height ~ dnorm(mu, sigma),
+  mu <- a + b * weight,
+  a ~ dnorm(156, 100),
+  b ~ dnorm(0, 10),
+  sigma ~ dunif(0, 50)
+),
+data = d2)
+```
+
+
+```{r, chunk4.38a, opts.label = "updated"}
+# load data again, since it's a long way back
+library(rethinking)
+data(Howell1)
+HowellAdults <-
+  Howell1 %>% filter(age > 18)
+
+# fit model
+m4.3 <- 
+  map(
+    alist(
+      height ~ dnorm(mu, sigma),
+      mu <- a + b * weight,
+      a ~ dnorm(156, 100),
+      b ~ dnorm(0, 10),
+      sigma ~ dunif(0, 50)
+    ),
+    data = HowellAdults)
+```
+
+## R code 4.39
+
+```{r, chunk4.39, opts.label = "original"}
+# but note: this doesn't work with link()!
+m4.3a <- map(alist(
+  height ~ dnorm(a + b * weight, sigma),
+  a ~ dnorm(178, 100),
+  b ~ dnorm(0, 10),
+  sigma ~ dunif(0, 50)
+),
+data = d2)
+```
+
+```{r, chunk4.39a, opts.label = "updated"}
+# but note: this doesn't work with link()!
+m4.3a <- map(alist(
+  height ~ dnorm(a + b * weight, sigma),
+  a ~ dnorm(178, 100),
+  b ~ dnorm(0, 10),
+  sigma ~ dunif(0, 50)
+),
+data = HowellAdults)
+```
+
+## R code 4.40
+
+```{r, chunk4.40}
+precis(m4.3)
+```
+
+## R code 4.41
+
+```{r, chunk4.41}
+precis(m4.3, corr = TRUE)
+```
+
+## R code 4.42
+
+Centering `weight`:
+
+```{r, chunk4.42, opts.label = "original"}
+d2$weight.c <- d2$weight - mean(d2$weight)
+```
+
+```{r, chunk4.42a, opts.label = "updated"}
+HowellAdults <- 
+  HowellAdults %>% 
+  mutate(weight.c = weight - mean(weight))
+```
+
+## R code 4.43
+
+```{r, chunk4.43, opts.label = "original"}
+m4.4 <- map(alist(
+  height ~ dnorm(mu, sigma),
+  mu <- a + b * weight.c,
+  a ~ dnorm(178, 100),
+  b ~ dnorm(0, 10),
+  sigma ~ dunif(0, 50)
+),
+data = d2)
+```
+
+```{r, chunk4.43a, opts.label = "updated"}
+m4.4 <- 
+  map(
+    alist(
+      height ~ dnorm(mu, sigma),
+      mu <- a + b * weight.c,
+      a ~ dnorm(178, 100),
+      b ~ dnorm(0, 10),
+      sigma ~ dunif(0, 50)
+    ),
+    data = HowellAdults)
+```
+
+## R code 4.44
+
+```{r, chunk4.44}
+precis(m4.4, corr = TRUE)
+```
+
+## R code 4.45
+
+```{r, chunk4.45, opts.label = "original"}
+plot(height ~ weight, data = d2)
+abline(a = coef(m4.3)["a"], b = coef(m4.3)["b"])
+```
+
+```{r, chunk4.45a, opts.label = "updated"}
+# lattice with custom panel function to overlay multiple things
+xyplot(height ~ weight, data = HowellAdults,
+       panel = function(x, y, ...) {
+         panel.abline(coef(m4.3))
+         panel.xyplot(x, y, ...)
+       }
+)
+```
+
+```{r, chunk4.45b, opts.label = "updated", fig.keep = "last"}
+# using plotFun() with add = TRUE to plot a function on top of points
+xyplot(height ~ weight, data = HowellAdults)
+plotFun(a + b * x ~ x, a = coef(m4.3)["a"], b = coef(m4.3)["b"], add = TRUE, col = "red")
+```
+
+```{r, chunk4.45c, opts.label = "updated"}
+# creating a separate function for use with plotFun()
+xyplot(height ~ weight, data = HowellAdults)
+line.fit <- function(x, a = coef(m4.3)["a"], b = coef(m4.3)["b"]) {
+  a + b * x
+}
+plotFun(line.fit(height) ~ height, add = TRUE, col = "red")
+```
+
+## R code 4.46
+
+```{r, chunk4.46, opts.label = "original"}
+post <- extract.samples(m4.3)
+```
+
+```{r, chunk4.46a, opts.label = "updated"}
+m4.3.post <- extract.samples(m4.3)
+```
+
+## R code 4.47
+
+```{r, chunk4.47, opts.label = "original"}
+post[1:5, ]
+```
+
+```{r, chunk4.47a, opts.label = "updated"}
+head(m4.3.post)
+```
+ ## R code 4.48
+
+```{r, chunk4.48, opts.label = "original"}
+N <- 10
+dN <- d2[1:N,]
+mN <- map(alist(
+  height ~ dnorm(mu, sigma),
+  mu <- a + b * weight,
+  a ~ dnorm(178, 100),
+  b ~ dnorm(0, 10),
+  sigma ~ dunif(0, 50)
+),
+data = dN)
+```
+
+```{r, chunk4.48a, opts.label = "updated"}
+HowellSmall <- Howell1 %>% sample(10)
+m4.4small <- 
+  map(alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + b * weight,
+    a ~ dnorm(178, 100),
+    b ~ dnorm(0, 10),
+    sigma ~ dunif(0, 50)
+  ),
+  data = HowellSmall)
+```
+
+## R code 4.49
+
+```{r, chunk4.49, opts.label = "original"}
+# extract 20 samples from the posterior
+post <- extract.samples(mN, n = 20)
+
+# display raw data and sample size
+plot(
+  dN$weight,
+  dN$height,
+  xlim = range(d2$weight),
+  ylim = range(d2$height),
+  col = rangi2,
+  xlab = "weight",
+  ylab = "height"
+)
+mtext(concat("N = ", N))
+
+# plot the lines, with transparency
+for (i in 1:20)
+  abline(a = post$a[i],
+         b = post$b[i],
+         col = col.alpha("black", 0.3))
+
+```
+
+```{r, chunk4.49a, opts.label = "updated"}
+# extract 50 samples from the posterior
+m4.4small.post <- extract.samples(m4.4small, n = 50)
+
+# display raw data and sample size
+xyplot(height ~ weight, data = HowellSmall,
+       xlim = c(30, 65),
+       ylim = c(130, 180),
+       col = rangi2,
+       main = concat("N = ", 10),
+       panel = function(x, y, ...) {
+         panel.xyplot(x, y, ...)
+         # plot the lines, with transparency
+         for (i in 1:nrow(m4.4small.post)) {
+           panel.abline(a = m4.4small.post$a[i], b = m4.4small.post$b[i], col = "black",
+                        alpha = 0.1)
+         }
+       }
+)
+```
+
+
+## R code 4.50
+
+```{r, chunk4.50, opts.label = "original"}
+mu_at_50 <- post$a + post$b * 50
+```
+
+```{r, chunk4.50a, opts.label = "updated"}
+m4.4small.post <-
+  m4.4small.post %>%
+  mutate(mu_at_50 = a + b * 50)
+```
+
+## R code 4.51
+
+```{r, chunk4.51, opts.label = "original"}
+dens(mu_at_50,
+     col = rangi2,
+     lwd = 2,
+     xlab = "mu|weight=50")
+```
+
+```{r, chunk4.51a, opts.label = "updated"}
+densityplot( ~ mu_at_50, data = m4.4small.post,
+  col = rangi2, lwd = 2, xlab = expression(paste(mu, " | weight=50")))
+```
+
+## R code 4.52
+
+```{r, chunk4.52, opts.label = "original"}
+HPDI(mu_at_50, prob = 0.89)
+```
+
+```{r, chunk4.52a, opts.label = "updated"}
+HPDI(m4.4small.post$mu_at_50, prob = 0.89)
+```
+
+
+## R code 4.53
+
+```{r, chunk4.53}
+mu <- link(m4.3)
+str(mu)
+```
+
+## R code 4.54
+
+```{r, chunk4.54, opts.label = "original"}
+# define sequence of weights to compute predictions for
+# these values will be on the horizontal axis
+weight.seq <- seq(from = 25, to = 70, by = 1)
+
+# use link to compute mu
+# for each sample from posterior
+# and for each weight in weight.seq
+mu <- link(m4.3, data = data.frame(weight = weight.seq))
+str(mu)
+```
+
+
+```{r, chunk4.54a, opts.label = "updated"}
+# define sequence of weights to compute predictions for
+# these values will be on the horizontal axis
+m4.3.pred <-
+  data.frame(weight = seq(from = 25, to = 70, by = 1))
+
+# use link to compute mu
+# for each sample from posterior
+# and for each weight in weight.seq
+mu <- 
+  link(
+    m4.3, 
+    data = m4.3.pred,
+  )
+str(mu)
+```
+
+## R code 4.55
+
+```{r, chunk4.55, opts.label = "original"}
+# use type="n" to hide raw data
+plot(height ~ weight, d2, type = "n")
+
+# loop over samples and plot each mu value
+for (i in 1:100)
+  points(weight.seq, mu[i, ], pch = 16, col = col.alpha(rangi2, 0.1))
+```
+
+```{r, chunk4.55a, fig.keep = "last"}
+# The shape of mu coming out of link() is backwards for lattice
+# t() flips rows and columns to make it work
+xyplot(t(mu) ~ weight, data = m4.3.pred, alpha = 0.1, col = rangi2, pch = 16)
+```
+
+## R code 4.56
+
+```{r, chunk4.56}
+# summarize the distribution of mu
+mu.mean <- apply(mu, 2, mean)
+mu.HPDI <- apply(mu, 2, HPDI, prob = 0.89)
+```
+
+## R code 4.57
+
+```{r, chunk4.57, opts.label = "original"}
+# plot raw data
+# fading out points to make line and interval more visible
+plot(height ~ weight, data = d2, col = col.alpha(rangi2, 0.5))
+
+# plot the MAP line, aka the mean mu for each weight
+lines(weight.seq, mu.mean)
+
+# plot a shaded region for 89% HPDI
+shade(mu.HPDI, weight.seq)
+```
+
+
+```{r, chunk4.57a, fig.keep = "last"}
+# plot raw data
+# fading out points to make line and interval more visible
+xyplot(height ~ weight, data = HowellAdults, col = rangi2, alpha = 0.5)
+
+# plot the MAP line, aka the mean mu for each weight
+plotPoints(mu.mean ~ weight, data = m4.3.pred, type = "l", add = TRUE)
+
+# plot a shaded region for 89% HPDI
+# need to figure out easiest way to do this in lattice
+# author's shade() function only works with his base graphics
+```
+
+
+## R code 4.58
+
+Here's roughly how `link()` works:
+
+```{r, chunk4.58}
+post <- extract.samples(m4.3)
+mu.link <- function(weight)
+  post$a + post$b * weight
+weight.seq <- seq(from = 25, to = 70, by = 1)
+mu <- sapply(weight.seq, mu.link)
+mu.mean <- apply(mu, 2, mean)
+mu.HPDI <- apply(mu, 2, HPDI, prob = 0.89)
+```
+
+## R code 4.59
+
+```{r, chunk4.59, opts.label = "original"}
+sim.height <- sim(m4.3, data = list(weight = weight.seq))
+str(sim.height)
+```
+
+```{r, chunk4.59a, opts.label = "updated"}
+
+sim.height <- sim(m4.3, data = m4.3.pred)  
+str(sim.height)
+```
+
+## R code 4.60
+
+```{r, chunk4.60}
+height.PI <- apply(sim.height, 2, PI, prob = 0.89)
+```
+
+## R code 4.61
+
+```{r, chunk4.61, opts.label = "original"}
+# plot raw data
+plot(height ~ weight, d2, col = col.alpha(rangi2, 0.5))
+
+# draw MAP line
+lines(weight.seq, mu.mean)
+
+# draw HPDI region for line
+shade(mu.HPDI, weight.seq)
+
+# draw PI region for simulated heights
+shade(height.PI, weight.seq)
+```
+
+```{r, chunk4.61a, fig.keep = "last"}
+# plot raw data
+xyplot(height ~ weight, HowellAdults, col = rangi2, alpha = 0.5)
+
+# draw MAP line
+plotPoints(mu.mean ~ weight, data = m4.3.pred, 
+           col = "blue", type = "l", add = TRUE)
+
+# need a replacement for shade() that works with lattice.
+# draw HPDI region for line
+# shade(mu.HPDI, weight.seq)
+plotPoints(mu.HPDI[1,] ~ weight, data = m4.3.pred, 
+           col = "navy", type = "l", add = TRUE)
+plotPoints(mu.HPDI[2,] ~ weight, data = m4.3.pred, 
+           col = "navy", type = "l", add = TRUE)
+
+# draw PI region for simulated heights
+# shade(height.PI, weight.seq)
+plotPoints(height.PI[1, ] ~ weight, data = m4.3.pred, 
+           col = "red", type = "l", add = TRUE)
+plotPoints(height.PI[2, ] ~ weight, data = m4.3.pred, 
+           col = "red", type = "l", add = TRUE)
+
+```
+
+## R code 4.62
+
+```{r, chunk4.62, opts.label = "original"}
+sim.height <- sim(m4.3, data = list(weight = weight.seq), n = 1e4)
+height.PI <- apply(sim.height, 2, PI, prob = 0.89)
+```
+
+```{r, chunk4.62a, opts.label = "updated"}
+sim.height <- sim(m4.3, data = m4.3.pred, n = 1e4)
+height.PI <- apply(sim.height, 2, PI, prob = 0.89)
+```
+
+
+## R code 4.63
+
+This is roughly how `sim()` works.
+
+```{r, chunk4.63}
+post <- extract.samples(m4.3)
+weight.seq <- 25:70
+sim.height <- sapply(weight.seq, function(weight)
+  rnorm(
+    n = nrow(post),
+    mean = post$a + post$b * weight,
+    sd = post$sigma
+  ))
+height.PI <- apply(sim.height, 2, PI, prob = 0.89)
+```
+
+## R code 4.64
+
+```{r, chunk4.64, opts.label = "original"}
+library(rethinking)
+data(Howell1)
+d <- Howell1
+str(d)
+
+```
+
+```{r, chunk4.64a, opts.label = "updated"}
+library(rethinking)
+data(Howell1)
+str(Howell1)
+
+```
+## R code 4.65
+
+```{r, chunk4.65, opts.label = "original"}
+d$weight.s <- (d$weight - mean(d$weight)) / sd(d$weight)
+
+```
+
+```{r, chunk4.65a, opts.label = "updated"}
+require(mosaic)  # for zscore()
+Howell1 <-
+  Howell1 %>%
+  mutate(
+    weight.s = zscore(weight),
+    weight.s2 = weight.s^2
+  )
+```
+
+## R code 4.66
+
+```{r, chunk4.66, opts.label = "original"}
+d$weight.s2 <- d$weight.s ^ 2
+m4.5 <- map(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + b1 * weight.s + b2 * weight.s2,
+    a ~ dnorm(178, 100),
+    b1 ~ dnorm(0, 10),
+    b2 ~ dnorm(0, 10),
+    sigma ~ dunif(0, 50)
+  ),
+  data = d
+)
+```
+
+```{r, chunk4.66a, opts.label = "updated"}
+m4.5 <- map(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + b1 * weight.s + b2 * weight.s2,
+    a ~ dnorm(178, 100),
+    b1 ~ dnorm(0, 10),
+    b2 ~ dnorm(0, 10),
+    sigma ~ dunif(0, 50)
+  ),
+  data = Howell1
+)
+```
+
+## R code 4.67
+
+```{r, chunk4.67}
+precis(m4.5)
+
+```
+
+## R code 4.68
+
+```{r, chunk4.68, opts.label = "original"}
+weight.seq <- seq(from = -2.2,
+                  to = 2,
+                  length.out = 30)
+pred_dat <- list(weight.s = weight.seq, weight.s2 = weight.seq ^ 2)
+mu <- link(m4.5, data = pred_dat)
+mu.mean <- apply(mu, 2, mean)
+mu.PI <- apply(mu, 2, PI, prob = 0.89)
+sim.height <- sim(m4.5, data = pred_dat)
+height.PI <- apply(sim.height, 2, PI, prob = 0.89)
+
+```
+```{r, chunk4.68a, opts.label = "updated"}
+m4.5.pred <-
+  data_frame(
+    weight.s = seq(from = -2.2, to = 2, length.out = 30),
+    weight.s2 = weight.s^2
+  )
+mu <- link(m4.5, data = m4.5.pred)
+sim.height <- sim(m4.5, data = m4.5.pred)
+mu.PI <- apply(mu, 2, PI, prob = 0.89)
+m4.5.pred <-
+  m4.5.pred %>%
+  mutate(
+    mu.mean = apply(mu, 2, mean),
+    mu.lo = apply(mu, 2, PI)[1,],
+    mu.hi = apply(mu, 2, PI)[2,],
+    sim.lo = apply(sim.height, 2, PI)[1,],
+    sim.hi = apply(sim.height, 2, PI)[2,]
+    )
+```
+
+## R code 4.69
+
+```{r, chunk4.69, opts.label = "original"}
+plot(height ~ weight.s, d, col = col.alpha(rangi2, 0.5))
+lines(weight.seq, mu.mean)
+shade(mu.PI, weight.seq)
+shade(height.PI, weight.seq)
+```
+
+```{r, chunk4.69a, opts.label = "updated"}
+xyplot(sim.hi + mu.hi + mu.mean + mu.lo + sim.lo ~ weight.s, 
+       data = m4.5.pred,  type = "l", auto.key = list(lines = TRUE, points = FALSE))
+plotPoints(height ~ weight.s, data = Howell1, col = rangi2, alpha = 0.5, add = TRUE)
+```
+```{r, chunk4.69b, opts.label = "updated"}
+ggplot(aes(x = weight.s), data = m4.5.pred) +
+  geom_point(aes(y = height), data = Howell1, color = rangi2) +
+  geom_line(aes(y = mu.lo), color = "navy") +
+  geom_line(aes(y = mu.hi), color = "navy") +
+  geom_line(aes(y = sim.lo), color = "red") +
+  geom_line(aes(y = sim.hi), color = "red") 
+```
+
+## R code 4.70
+
+```{r, chunk4.70, opts.label = "original"}
+d$weight.s3 <- d$weight.s ^ 3
+m4.6 <- map(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + b1 * weight.s + b2 * weight.s2 + b3 * weight.s3,
+    a ~ dnorm(178, 100),
+    b1 ~ dnorm(0, 10),
+    b2 ~ dnorm(0, 10),
+    b3 ~ dnorm(0, 10),
+    sigma ~ dunif(0, 50)
+  ),
+  data = d
+)
+```
+
+
+```{r, chunk4.70a, opts.label = "updated"}
+Howell1 <- 
+  Howell1 %>% mutate(weight.s3 = weight.s^3)
+
+m4.6 <- map(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + b1 * weight.s + b2 * weight.s2 + b3 * weight.s3,
+    a ~ dnorm(178, 100),
+    b1 ~ dnorm(0, 10),
+    b2 ~ dnorm(0, 10),
+    b3 ~ dnorm(0, 10),
+    sigma ~ dunif(0, 50)
+  ),
+  data = Howell1
+)
+```
+
+## R code 4.71
+
+```{r, chunk4.71, opts.label = "original"}
+plot(height ~ weight.s,
+     d,
+     col = col.alpha(rangi2, 0.5),
+     xaxt = "n")
+```
+
+```{r, chunk4.71a, opts.label = "updated"}
+xyplot(
+  height ~ weight, data = Howell1,
+  col = rangi2, alpha = 0.5)
+```
+
+## R code 4.72
+
+```{r, chunk4.72, opts.label = "original"}
+plot(height ~ weight.s,
+     d,
+     col = col.alpha(rangi2, 0.5),
+     xaxt = "n")
+at <- c(-2, -1, 0, 1, 2)
+labels <- at * sd(d$weight) + mean(d$weight)
+axis(side = 1,
+     at = at,
+     labels = round(labels, 1))
+
+```
+
+```{r, chunk4.72a, opts.label = "updated"} 
+xyplot(height ~ weight, data = Howell1, 
+       col = rangi2,
+       scales=list(
+         x = list(at =  round((-2:2) * sd(Howell1$weight) + mean(Howell1$weight), 1))
+       )
+)
+
+```
+## R code 4.73
+
+```{r, chunk4.73, opts.label = "original"}
+plot(height ~ weight, data = Howell1,
+     col = col.alpha(rangi2, 0.4))
+
+```
+
+```{r, chunk4.73a, opts.label = "updated"}
+xyplot(height ~ weight, data = Howell1,
+       col = rangi2, alpha = 0.4)
+```
+
