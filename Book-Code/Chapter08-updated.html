@@ -123,6 +123,13 @@ $(document).ready(function () {
 </div>
 
 
+<p>Code from <em>Statistical Rethinking</em> modified by R Pruim is shown below. Differences to the oringal include:</p>
+<ul>
+<li>a preference for putting data into containers (data frames, mostly), rather than working with lose vectors.</li>
+<li>use of <code>ggplot2</code> (via <code>ggformula</code>) rather than base graphics</li>
+<li>use of <code>tidyverse</code> for data transformation</li>
+<li>better (in my opinion) naming conventions</li>
+</ul>
 <div id="r-code-8.1" class="section level4">
 <h4>R Code 8.1</h4>
 <p>The book does this as a chunk of code. It is much nicer to wrap this in a function and to return a data frame that makes plotting nicer.</p>
@@ -410,49 +417,9 @@ inspect(Nations.trim)  # No missing values among these three variables</code></p
     bAR ~ dnorm(0, 10),
     sigma ~ dcauchy(0, 2)
   ),
-  data = Nations.trim
+  data = Nations.trim,
+  refresh = 0
 )</code></pre>
-<pre><code>## 
-## SAMPLING FOR MODEL 'log_gdp ~ dnorm(mu, sigma)' NOW (CHAIN 1).
-## 
-## Chain 1, Iteration:    1 / 2000 [  0%]  (Warmup)
-## Chain 1, Iteration:  200 / 2000 [ 10%]  (Warmup)
-## Chain 1, Iteration:  400 / 2000 [ 20%]  (Warmup)
-## Chain 1, Iteration:  600 / 2000 [ 30%]  (Warmup)
-## Chain 1, Iteration:  800 / 2000 [ 40%]  (Warmup)
-## Chain 1, Iteration: 1000 / 2000 [ 50%]  (Warmup)
-## Chain 1, Iteration: 1001 / 2000 [ 50%]  (Sampling)
-## Chain 1, Iteration: 1200 / 2000 [ 60%]  (Sampling)
-## Chain 1, Iteration: 1400 / 2000 [ 70%]  (Sampling)
-## Chain 1, Iteration: 1600 / 2000 [ 80%]  (Sampling)
-## Chain 1, Iteration: 1800 / 2000 [ 90%]  (Sampling)
-## Chain 1, Iteration: 2000 / 2000 [100%]  (Sampling)
-##  Elapsed Time: 0.2006 seconds (Warm-up)
-##                0.176391 seconds (Sampling)
-##                0.376991 seconds (Total)
-## 
-## 
-## SAMPLING FOR MODEL 'log_gdp ~ dnorm(mu, sigma)' NOW (CHAIN 1).
-## WARNING: No variance estimation is
-##          performed for num_warmup &lt; 20
-## 
-## 
-## Chain 1, Iteration: 1 / 1 [100%]  (Sampling)
-##  Elapsed Time: 4e-06 seconds (Warm-up)
-##                5.8e-05 seconds (Sampling)
-##                6.2e-05 seconds (Total)</code></pre>
-<pre><code>## Computing WAIC</code></pre>
-<pre><code>## Constructing posterior predictions</code></pre>
-<pre><code>## [ 100 / 1000 ]
-[ 200 / 1000 ]
-[ 300 / 1000 ]
-[ 400 / 1000 ]
-[ 500 / 1000 ]
-[ 600 / 1000 ]
-[ 700 / 1000 ]
-[ 800 / 1000 ]
-[ 900 / 1000 ]
-[ 1000 / 1000 ]</code></pre>
 </div>
 <div id="r-code-8.6" class="section level4">
 <h4>R Code 8.6</h4>

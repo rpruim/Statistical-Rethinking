@@ -25,6 +25,15 @@ knitr::opts_chunk$set(
 theme_set(theme_light())
 ```
 
+
+Code from *Statistical Rethinking* modified by R Pruim is shown below.  Differences to the oringal include:
+
+  * a preference for putting data into containers (data frames, mostly), rather than working with lose vectors.
+  * use of `ggplot2` (via `ggformula`) rather than base graphics
+  * use of `tidyverse` for data transformation
+  * better (in my opinion) naming conventions
+  
+  
 #### R Code 8.1
 
 The book does this as a chunk of code.  It is much nicer to wrap this
@@ -173,7 +182,7 @@ inspect(Nations.trim)  # No missing values among these three variables
 #### R Code 8.4
 
 Fit with Stan:
-```{r, chunk8.5}
+```{r, chunk8.5, results = "hide", message = FALSE}
 m8.1stan <- map2stan(
   alist(
     log_gdp ~ dnorm(mu, sigma),
@@ -184,7 +193,8 @@ m8.1stan <- map2stan(
     bAR ~ dnorm(0, 10),
     sigma ~ dcauchy(0, 2)
   ),
-  data = Nations.trim
+  data = Nations.trim,
+  refresh = 0
 )
 ```
 
