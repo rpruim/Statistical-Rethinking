@@ -1,0 +1,149 @@
+---
+title: "Statistical Rethinking (Code)"
+author: "Chapter 9"
+date: "April, 2017"
+output:
+  html_document: 
+    fig_height: 3.5
+  pdf_document: 
+    fig_height: 3.5
+---
+
+```{r, setup, include = FALSE}
+# Load packages here 
+require(rethinking)
+require(mosaic)   
+require(ggformula)
+
+# Some customization.  You can alter or delete as desired (if you know what you are doing).
+trellis.par.set(theme=theme.mosaic()) # change default color scheme for lattice
+knitr::opts_chunk$set(
+  cache = TRUE,
+  tidy = FALSE,     # display code as typed
+  size = "small",   # slightly smaller font for code
+  fig.show = "hold")   # all plots at end of chunk
+theme_set(theme_light())
+
+options(`mosaic:parallelMessage` = FALSE)
+```
+
+
+#### R Code 9.1
+
+```{r, chunk9.1}
+q <- list(
+  A = c(0, 0, 10, 0, 0),
+  B = c(0, 1, 8, 1, 0),
+  C = c(0, 2, 6, 2, 0),
+  D = c(1, 2, 4, 2, 1),
+  E = c(2, 2, 2, 2, 2))
+```
+
+
+#### R Code 9.2
+
+```{r, chunk9.2}
+# convert counts to probabilities
+p <- purrr::map(q, ~ .x / sum(.x))
+```
+
+#### R Code 9.3
+
+```{r, chunk9.3}
+# Entropy function -- being careful to handle 0 probabilities correctly
+H <- function(p) {
+  - sum(ifelse(p > 0, p * log(p), 0))
+}
+sapply(p, H)
+```
+
+#### R Code 9.4
+
+```{r, chunk9.4}
+ways <- c(1, 90, 1260, 37800, 113400)
+log(ways) / 10
+```
+
+#### R Code 9.5
+
+```{r, chunk9.5}
+# build list of the candidate distributions
+p <- list(
+  A = c(1 / 4, 1 / 4, 1 / 4, 1 / 4),
+  B = c(2 / 6, 1 / 6, 1 / 6, 2 / 6),
+  C = c(1 / 6, 2 / 6, 2 / 6, 1 / 6),
+  D = c(1 / 8, 4 / 8, 2 / 8, 1 / 8)
+)
+
+# compute expected value of each -- should all be the same
+sapply(p, function(x) sum(x * c(0, 1, 1, 2)))
+```
+
+#### R Code 9.6
+
+```{r, chunk9.6, fig.height = 1}
+# compute entropy of each distribution
+sapply(p, H)
+D <- data_frame(dist = LETTERS[1:4], H = sapply(p, H))
+gf_point(H ~ dist, data = D) 
+```
+
+#### R Code 9.7
+
+```{r, chunk9.7}
+p <- 0.7
+A <- c((1 - p) ^ 2, p * (1 - p), (1 - p) * p, p ^ 2)
+A
+```
+
+#### R Code 9.8
+
+```{r, chunk9.8}
+H(A)
+```
+
+#### R Code 9.9
+
+This version of `sim.p()` prepares a nice data frame with all of the results.
+The (calculaed) expected value is addd for good measure.  It should always 
+equal the target expected value given in the call of the function.
+
+```{r, chunk9.9}
+sim.p <- function(n = 1e4, E = 1.4) {
+  Q <- matrix(runif(3 *n), ncol = 3) 
+  q4 <- (E * (Q[, 1] + Q[, 2] + Q[, 3]) - Q[, 2] - Q[, 3]) / (2 - E)
+  Q <- cbind(Q, q4)
+  S <- apply(Q, 1, sum)
+  P <- Q / S
+  data_frame(
+    p1 = P[, 1], 
+    p2 = P[, 2],
+    p3 = P[, 3],
+    p4 = P[, 4],
+    H = apply(P, 1, H),
+    E = apply(P, 1, function(q) sum(q * c(0, 1, 1, 2)))
+  )
+}
+sim.p(3)
+```
+
+#### R Code 9.10
+
+Now let's simulate a bunch of these and compare them to our distribution A.
+
+```{r, chunk9.10}
+Sims <- sim.p(1e5)
+gf_histogram( ~ H, data = Sims, binwidth = 0.01, boundary = H(A)) %>% 
+gf_vline(xintercept = H(A), color = "red")
+```
+
+
+#### R Code 9.11 -- 9.13
+
+Since our simulations are preparing a nice data frame, we can 
+get the information we want very easily.
+
+```{r, chunk9.13}
+H(A)
+Sims %>% arrange(-H) %>% head(4) %>% round(4)
+```
