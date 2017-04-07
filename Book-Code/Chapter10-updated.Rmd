@@ -1,0 +1,960 @@
+---
+title: "Statistical Rethinking (Code)"
+author: "Chapter 10"
+date: "April, 2017"
+output:
+  html_document: 
+    fig_height: 3.5
+  pdf_document: 
+    fig_height: 3.5
+---
+
+```{r, setup, include = FALSE}
+# Load packages here 
+require(rethinking)
+require(mosaic)   
+require(ggformula)
+
+# Some customization.  You can alter or delete as desired (if you know what you are doing).
+trellis.par.set(theme=theme.mosaic()) # change default color scheme for lattice
+knitr::opts_chunk$set(
+  cache = TRUE,
+  error = TRUE,
+  tidy = FALSE,     # display code as typed
+  size = "small",   # slightly smaller font for code
+  fig.show = "hold")   # all plots at end of chunk
+theme_set(theme_light())
+
+options(`mosaic:parallelMessage` = FALSE)
+set.seed(12345)
+```
+
+
+Code from *Statistical Rethinking* modified by R Pruim is shown below.  Differences to the oringal include:
+
+  * a preference for putting data into containers (data frames, mostly), rather than working with lose vectors.
+  * use of `ggplot2` (via `ggformula`) rather than base graphics
+  * use of `tidyverse` for data transformation
+  * better (in my opinion) naming conventions
+  
+#### R Code 10.1
+
+```{r, chunk10.1}
+library(rethinking)
+data(chimpanzees)
+Chimps <- chimpanzees %>% 
+  mutate( combo = paste0(prosoc_left, "/", condition) )  # used for plotting later
+```
+
+#### R Code 10.2
+
+```{r, chunk10.2}
+m10.1 <- 
+  map(
+    alist(pulled_left ~ dbinom(1, p),
+          logit(p) <- a,
+          a ~ dnorm(0, 10)),
+    data = Chimps)
+precis(m10.1)
+```
+
+#### R Code 10.3
+
+```{r, chunk10.3}
+# two different ways to get the inverse of the logit function
+logistic(c(0.18, 0.46))
+ilogit(c(0.18, 0.46))
+```
+
+#### R Code 10.4
+
+```{r, chunk10.4}
+m10.2 <- 
+  map(
+    alist(
+      pulled_left ~ dbinom(1, p),
+      logit(p) <- a + bp * prosoc_left,
+      a ~ dnorm(0, 10),
+      bp ~ dnorm(0, 10)
+    ),
+    data = Chimps)
+m10.3 <- 
+  map(
+    alist(
+      pulled_left ~ dbinom(1, p),
+      logit(p) <- a + (bp + bpC * condition) * prosoc_left,
+      a ~ dnorm(0, 10),
+      bp ~ dnorm(0, 10),
+      bpC ~ dnorm(0, 10)
+    ),
+    data = Chimps)
+```
+
+#### R Code 10.5
+
+```{r, chunk10.5}
+compare(m10.1, m10.2, m10.3)
+```
+
+#### R Code 10.6
+
+```{r, chunk10.6}
+precis(m10.3)
+```
+
+#### R Code 10.7
+
+```{r, chunk10.7}
+exp(0.61)
+```
+
+#### R Code 10.8
+
+```{r, chunk10.8}
+logistic(4)
+```
+
+#### R Code 10.9
+
+```{r, chunk10.9}
+logistic(4 + 0.61)
+```
+
+#### R Code 10.10
+
+```{r, chunk10.10}
+# dummy data for predictions across treatments
+Chimps.pred <- 
+  data_frame(
+    prosoc_left = c(0, 1, 0, 1),  # right/left/right/left
+    condition = c(0, 0, 1, 1),    # control/control/partner/partner
+    combo = paste0(prosoc_left, "/", condition)   # used for plotting later
+  )
+
+# build prediction ensemble
+chimps.ensemble <- ensemble(m10.1, m10.2, m10.3, data = Chimps.pred)
+
+# summarize
+Chimps.pred <-
+  Chimps.pred %>% 
+  mutate( 
+    pred.p    = apply(chimps.ensemble$link, 2, mean),
+    pred.p.lo = apply(chimps.ensemble$link, 2, PI)[1,],
+    pred.p.hi = apply(chimps.ensemble$link, 2, PI)[2,]
+  )
+```
+
+#### R Code 10.11
+
+```{r, chunk10.11}
+# stat = "summary", fun.y = mean says use the average y value in each group
+gf_line(pulled_left ~ combo + group::actor, data = Chimps, 
+        stat = "summary", fun.y = mean,
+        alpha = 0.6) %>%
+  gf_ribbon(pred.p.lo + pred.p.hi ~ combo + fill:"red" + group:"1", data = Chimps.pred) %>%
+  gf_line(pred.p ~ combo + group:"1" + color:"red", data = Chimps.pred) %>%
+  gf_labs(x = "prosocial on left / has partner", y = "proportion pulled left")
+```
+
+#### R Code 10.12
+
+```{r, chunk10.12}
+# clean NAs from the data
+Chimps2 <- Chimps %>% select(-recipient)
+
+# re-use map fit to get the formula
+m10.3stan <- 
+  map2stan(
+    m10.3,
+    data = Chimps2,
+    iter = 1e4,
+    warmup = 1000,
+    refresh = 0)
+precis(m10.3stan)
+```
+
+#### R Code 10.13
+
+```{r, chunk10.13}
+pairs(m10.3stan)
+```
+
+#### R Code 10.14
+
+```{r, chunk10.14}
+m10.4 <- map2stan(
+  alist(
+    pulled_left ~ dbinom(1, p),
+    logit(p) <- a[actor] + (bp + bpC * condition) * prosoc_left,
+    a[actor] ~ dnorm(0, 10),
+    bp ~ dnorm(0, 10),
+    bpC ~ dnorm(0, 10)
+  ),
+  data = Chimps2,
+  chains = 2,
+  iter = 2500,
+  warmup = 500,
+  refresh = 0
+)
+```
+
+#### R Code 10.15
+
+```{r, chunk10.15}
+tally(~ actor, data = Chimps)
+```
+
+#### R Code 10.16
+
+```{r, chunk10.16}
+precis(m10.4, depth = 2)
+```
+
+#### R Code 10.17
+
+```{r, chunk10.17}
+m10.4_post <- extract.samples(m10.4)
+str(m10.4_post)
+```
+
+#### R Code 10.18
+
+```{r, chunk10.18}
+gf_dens(~ (m10.4_post$a[, 2]))
+```
+
+```{r}
+as.data.frame(m10.4_post) %>% head(2)
+gf_dens(~ a.2, data = m10.4_post %>% as.data.frame())
+```
+
+#### R Code 10.19
+
+```{r, chunk10.19}
+Chimps.pred <-
+  expand.grid(
+    actor = 1:7,
+    prosoc_left = 0:1,
+    condition = 0:1) %>%
+  mutate(
+    combo = paste0(prosoc_left, "/", condition)
+    )
+
+m10.4_link <- link(m10.4, data = Chimps.pred)
+Chimps.pred <-
+  Chimps.pred %>%
+  mutate(
+    pred.p = apply(m10.4_link, 2, mean),
+    pred.p.lo = apply(m10.4_link, 2, PI)[1,],
+    pred.p.hi = apply(m10.4_link, 2, PI)[2,]
+  )
+```
+
+```{r, chunk10.19a}
+gf_ribbon(pred.p.lo + pred.p.hi ~ combo + group:"1", data = Chimps.pred) %>%
+  gf_line(pred.p ~ combo + group:"1", data = Chimps.pred) %>% 
+  gf_line(pulled_left ~ combo + group:"1", data = Chimps, color = "red",
+          stat = "summary", fun.y = mean) %>%
+  gf_facet_wrap( ~ actor) %>% 
+  gf_labs(x = "prosocial on left / has partner", y = "proportion pulled left") %>%
+  gf_refine(ylim(0,1))
+```
+
+## Aggregated Binomial Model
+
+### Chimps again
+
+We can redo the models from the previous section using data that is summarised into counts.
+
+#### R Code 10.20
+
+The book only computes `x` (because `n` is 18 in each case).  But in general, both `x` and `n`
+might vary.  So let's get in the habbit of keeping both `x` and `n` in our aggregated data.
+
+```{r, chunk10.20}
+Chimps.ag <-
+  Chimps %>% 
+  group_by(prosoc_left, condition, actor) %>%
+  summarise(x = sum(pulled_left), n = n()) %>%
+  arrange(actor, condition, prosoc_left)     # put things into same order as in book
+Chimps.ag %>% head()
+```
+
+#### R Code 10.21
+
+No reason to assume every chimp has same number of observations (although they do in this case).
+Let's put `n` in place of `18`.
+
+```{r, chunk10.21}
+m10.5 <- map(
+  alist(
+    x ~ dbinom(n, p),
+    logit(p) <- a + (bp + bpC * condition) * prosoc_left,
+    a ~ dnorm(0, 10),
+    bp ~ dnorm(0, 10),
+    bpC ~ dnorm(0, 10)
+  ),
+  data = Chimps.ag)
+```
+
+### Graduate School Admissions
+
+#### R Code 10.22
+
+```{r, chunk10.22}
+data(UCBadmit)
+Admit <- UCBadmit %>% 
+  mutate(male = ifelse(applicant.gender == "male", 1, 0))
+```
+
+#### R Code 10.23
+
+```{r, chunk10.23}
+m10.6 <-  
+  map(
+    alist(
+      admit ~ dbinom(applications, p),
+      logit(p) <- a + bm * male,
+      a ~ dnorm(0, 10),
+      bm ~ dnorm(0, 10)
+    ),
+    data = Admit,
+    start = list(a = 5, b = 5))
+```
+```{r, chunk10.23a}
+m10.7 <- 
+  map(
+    alist(admit ~ dbinom(applications, p),
+          logit(p) <- a,
+          a ~ dnorm(0, 10)),
+    data = Admit,
+    start = list(a = 5))
+```
+
+
+#### R Code 10.24
+
+```{r, chunk10.24}
+compare(m10.6, m10.7)
+```
+
+#### R Code 10.25
+
+```{r, chunk10.25}
+precis(m10.6)
+```
+
+#### R Code 10.26
+
+```{r, chunk10.26}
+m10.6_post <- extract.samples(m10.6, refresh = 0) %>%
+  mutate(
+    p.admit.male = logistic(a + bm),
+    p.admit.female = logistic(a),
+    p.admit.diff = p.admit.male - p.admit.female
+  )
+gf_dens(~p.admit.diff, data = m10.6_post)
+qdata(~ p.admit.diff, c(0.025, 0.5, 0.975), data = m10.6_post)
+quantile(~ p.admit.diff, p = c(0.025, 0.5, 0.975), data = m10.6_post)
+quantile(m10.6_post$p.admit.diff, c(0.025, 0.5, 0.975))
+```
+
+#### R Code 10.27
+
+```{r, chunk10.27}
+PC <- postcheck(m10.6, n = 1e4)
+# draw lines connecting points from same dept
+for (i in 1:6) {
+  x <- 1 + 2 * (i - 1)
+  y1 <- Admit$admit[x] / Admit$applications[x]
+  y2 <- Admit$admit[x + 1] / Admit$applications[x + 1]
+  lines(c(x, x + 1), c(y1, y2), col = rangi2, lwd = 2)
+  text(x + 0.5,
+       (y1 + y2) / 2 + 0.05,
+       Admit$dept[x],
+       cex = 0.8,
+       col = rangi2)
+}
+```
+
+Here's a version that displays this information differently and is created from scratch.
+
+```{r, chunk10.27a}
+m10.6_link <- link(m10.6)
+m10.6_sim  <-  sim(m10.6)
+m10.6_pc <- 
+  Admit %>%
+  mutate(
+    p.admit = admit / applications,
+    pred.admit = apply(m10.6_link, 2, median),
+    link.admit.lo = apply(m10.6_link, 2, PI,prob = 0.95)[1,],
+    link.admit.hi = apply(m10.6_link, 2, PI,prob = 0.95)[2,],
+    sim.admit.lo = apply(m10.6_sim, 2, PI,prob = 0.95)[1,] / applications,
+    sim.admit.hi = apply(m10.6_sim, 2, PI,prob = 0.95)[2,] / applications
+    )
+```
+
+```{r, chunk10.27b}
+gf_point(p.admit ~ dept + color::applicant.gender, data = m10.6_pc,
+         position = position_dodge(width = 0.4), size = 1.8) %>%
+  gf_point(pred.admit ~ dept + color::applicant.gender, data = m10.6_pc,
+           position = position_dodge(width = 0.4), shape = 3, size = 3) %>%
+  gf_linerange(link.admit.lo + link.admit.hi ~ dept + color::applicant.gender, data = m10.6_pc,
+           position = position_dodge(width = 0.4), alpha = 0.6, size = 1.5) %>%
+  gf_linerange(sim.admit.lo + sim.admit.hi ~ dept + color::applicant.gender, data = m10.6_pc,
+           position = position_dodge(width = 0.4), alpha = 0.6) %>%
+  gf_labs(title = "posterior check for m10.6") %>%
+  gf_refine(scale_color_manual(values = c(male = "navy", female = "red")))
+```
+
+#### R Code 10.28
+
+```{r, chunk10.28}
+# make index
+Admit <-
+  Admit %>%
+  mutate(
+    dept_id = coerce_index(dept)
+  )
+
+# model with unique intercept for each dept
+m10.8 <- 
+  map(
+    alist(
+      admit ~ dbinom(applications, p),
+      logit(p) <- a[dept_id],
+      a[dept_id] ~ dnorm(0, 10)), 
+    data = Admit)
+
+# model with male difference as well
+m10.9 <- 
+  map(
+    alist(
+      admit ~ dbinom(applications, p),
+      logit(p) <- a[dept_id] + bm * male,
+      a[dept_id] ~ dnorm(0, 10),
+      bm ~ dnorm(0, 10)
+    ),
+    data = Admit)
+```
+
+#### R Code 10.29
+
+```{r, chunk10.29}
+compare(m10.6, m10.7, m10.8, m10.9)
+```
+
+#### R Code 10.30
+
+```{r, chunk10.30}
+precis(m10.9, depth = 2)
+```
+
+### map() vs Stan
+
+#### R Code 10.31
+
+```{r, chunk10.31}
+m10.9stan <- 
+  map2stan(
+    m10.9,
+    chains = 2,
+    iter = 2500,
+    warmup = 500,
+    refresh = 0)
+```
+
+```{r, chunk10.31a}
+precis(m10.9stan, depth = 2)
+```
+
+```{r, chuk10.31b}
+plot(precis(m10.9, depth = 2))
+plot(precis(m10.9stan, depth = 2))
+```
+
+### Posterior Predictive Check
+
+```{r, chunk10.31c}
+m10.9_link <- link(m10.9)
+m10.9_sim  <-  sim(m10.9)
+m10.9_pc <- 
+  Admit %>%
+  mutate(
+    p.admit = admit / applications,
+    pred.admit = apply(m10.9_link, 2, median),
+    link.admit.lo = apply(m10.9_link, 2, PI,prob = 0.95)[1,],
+    link.admit.hi = apply(m10.9_link, 2, PI,prob = 0.95)[2,],
+    sim.admit.lo = apply(m10.9_sim, 2, PI,prob = 0.95)[1,] / applications,
+    sim.admit.hi = apply(m10.9_sim, 2, PI,prob = 0.95)[2,] / applications
+    )
+```
+
+```{r, chunk10.31d}
+gf_point(p.admit ~ dept + color::applicant.gender, data = m10.9_pc,
+         position = position_dodge(width = 0.4), size = 1.8) %>%
+  gf_point(pred.admit ~ dept + color::applicant.gender, data = m10.9_pc,
+           position = position_dodge(width = 0.4), shape = 3, size = 3) %>%
+  gf_linerange(link.admit.lo + link.admit.hi ~ dept + color::applicant.gender, data = m10.9_pc,
+           position = position_dodge(width = 0.4), alpha = 0.6, size = 1.3) %>%
+  gf_linerange(sim.admit.lo + sim.admit.hi ~ dept + color::applicant.gender, data = m10.9_pc,
+           position = position_dodge(width = 0.4), alpha = 0.6) %>%
+  gf_labs(title = "posterior check for m10.9") %>%
+  gf_refine(scale_color_manual(values = c(male = "navy", female = "red")))
+```
+
+## Fitting with glm()
+
+#### R Code 10.32
+
+```{r, chunk10.32}
+m10.7glm <-
+  glm(cbind(admit, reject) ~ 1, data = Admit, family = binomial)
+m10.6glm <-
+  glm(cbind(admit, reject) ~ male, data = Admit, family = binomial)
+m10.8glm <-
+  glm(cbind(admit, reject) ~ dept, data = Admit, family = binomial)
+m10.9glm <- glm(cbind(admit, reject) ~ male + dept,
+                data = Admit,
+                family = binomial)
+```
+
+#### R Code 10.33
+
+```{r, chunk10.33}
+data(chimpanzees)
+m10.4glm <- glm(
+  pulled_left ~ as.factor(actor) + prosoc_left * condition - condition,
+  data = chimpanzees,
+  family = binomial
+)
+```
+
+#### R Code 10.34
+
+```{r, chunk10.34}
+glimmer(pulled_left ~ prosoc_left * condition - condition,
+        data = chimpanzees,
+        family = binomial)
+```
+
+## A synthetic example
+
+#### R Code 10.35
+
+```{r, chunk10.35}
+# outcome and predictor almost perfectly associated
+y <- c(rep(0, 10), rep(1, 10))
+x <- c(rep(-1, 9), rep(1, 11))
+# fit binomial GLM
+m.bad <- glm(y ~ x, data = list(y = y, x = x), family = binomial)
+precis(m.bad)
+```
+
+#### R Code 10.36
+
+```{r, chunk10.36}
+m.good <- map(alist(y ~ dbinom(1, p),
+                    logit(p) <- a + b * x,
+                    c(a, b) ~ dnorm(0, 10)), data = list(y = y, x = x))
+precis(m.good)
+```
+
+#### R Code 10.37
+
+```{r, chunk10.37}
+m.good.stan <- map2stan(m.good)
+```
+
+```{r}
+precis(m.good.stan)
+pairs(m.good.stan)
+```
+
+## Poisson Regression
+
+#### R Code 10.38
+
+```{r, chunk10.38}
+y <- rbinom(1e5, 1000, 1 / 1000)
+c(mean(y), var(y))
+```
+
+#### R Code 10.39
+
+```{r, chunk10.39}
+data(Kline)
+```
+
+#### R Code 10.40
+
+```{r, chunk10.40}
+Kline <-
+  Kline %>% 
+  mutate(
+    log_pop = log(population),
+    contact_high = ifelse(contact == "high", 1, 0)
+  )
+```
+
+#### R Code 10.41
+
+```{r, chunk10.41}
+m10.10 <- 
+  map(
+    alist(
+      total_tools ~ dpois(lambda),
+      log(lambda) <- a + bp * log_pop +
+        bc * contact_high + bpc * contact_high * log_pop,
+      a ~ dnorm(0, 100),
+      c(bp, bc, bpc) ~ dnorm(0, 1)
+    ),
+    data = Kline
+  )
+```
+
+#### R Code 10
+
+```{r, chunk10.42}
+precis(m10.10, corr = TRUE)
+plot(precis(m10.10))
+```
+
+#### R Code 10.43
+
+```{r, chunk10.43}
+post <- 
+  extract.samples(m10.10) %>%
+  mutate(
+    lambda_high = exp(a + bc + (bp + bpc) * 8),
+    lambda_low =  exp(a + bp * 8)
+  )
+```
+
+#### R Code 10.44
+
+```{r, chunk10.44}
+diff <- lambda_high - lambda_low
+sum(diff > 0) / length(diff)
+```
+
+#### R Code 10.45
+
+```{r, chunk10.45}
+# no interaction
+m10.11 <- map(
+  alist(
+    total_tools ~ dpois(lambda),
+    log(lambda) <- a + bp * log_pop + bc * contact_high,
+    a ~ dnorm(0, 100),
+    c(bp, bc) ~ dnorm(0, 1)
+  ),
+  data = Kline
+)
+```
+
+#### R Code 10.46
+
+```{r, chunk10.46}
+# no contact rate
+m10.12 <- 
+  map(
+    alist(
+      total_tools ~ dpois(lambda),
+      log(lambda) <- a + bp * log_pop,
+      a ~ dnorm(0, 100),
+      bp ~ dnorm(0, 1)
+    ),
+    data = Kline)
+
+# no log-population
+m10.13 <- 
+  map(
+    alist(
+      total_tools ~ dpois(lambda),
+      log(lambda) <- a + bc * contact_high,
+      a ~ dnorm(0, 100),
+      bc ~ dnorm(0, 1)
+    ),
+    data = Kline)
+```
+
+#### R Code 10.47
+
+```{r, chunk10.47}
+# intercept only
+m10.14 <- 
+  map(
+    alist(
+      total_tools ~ dpois(lambda),
+      log(lambda) <- a,
+      a ~ dnorm(0, 100)), 
+    data = Kline)
+```
+
+```{r}
+# compare all using WAIC
+# adding n=1e4 for more stable WAIC estimates
+# will also plot the comparison
+(islands.compare <-
+  compare(m10.10, m10.11, m10.12, m10.13, m10.14, n = 1e4))
+plot(islands.compare)
+```
+
+#### R Code 10.48
+
+```{r, chunk10.48}
+Kline.pred <-
+  expand.grid(
+    log_pop = seq(from = 6, to = 13, by = 0.25),
+    contact_high = 0L:1L
+  ) %>%
+  mutate(
+    contact = ifelse(contact_high == 1, "high", "low")
+  )
+
+Kline.ens <- ensemble(m10.10, m10.11, m10.12, data = Kline.pred) 
+Kline.pred <- 
+  Kline.pred %>%
+  mutate(
+    lambda.med = apply(Kline.ens$link, 2, median),
+    lambda.link.lo = apply(Kline.ens$link, 2, PI)[1,],
+    lambda.link.hi = apply(Kline.ens$link, 2, PI)[2,])
+```
+
+```{r}
+gf_point(total_tools ~ log_pop + shape:contact + color:contact, data = Kline) %>%
+  gf_ribbon(lambda.link.lo + lambda.link.hi ~ log_pop + fill:contact, data = Kline.pred) %>%
+  gf_line(lambda.med ~ log_pop + color:contact, data = Kline.pred) %>% 
+  gf_refine(scale_shape_manual(values = c(16, 1)))
+```
+
+#### R Code 10.49
+
+```{r, chunk10.49}
+m10.10stan <-
+  map2stan(
+    m10.10,
+    iter = 3000,
+    warmup = 1000,
+    chains = 4,
+    refresh = 0)
+precis(m10.10stan)
+```
+
+#### R Code 10.50
+
+```{r, chunk10.50}
+# construct centered predictor
+Kline <-
+  Kline %>%
+  mutate(log_pop_c = log_pop - mean(log_pop))
+
+# re-estimate
+m10.10stan.c <- 
+  map2stan(
+    alist(
+      total_tools ~ dpois(lambda),
+      log(lambda) <- a + bp * log_pop_c + bc * contact_high +
+        bcp * log_pop_c * contact_high,
+      a ~ dnorm(0, 10),
+      bp ~ dnorm(0, 1),
+      bc ~ dnorm(0, 1),
+      bcp ~ dnorm(0, 1)
+    ),
+    data = Kline,
+    iter = 3000,
+    warmup = 1000,
+    chains = 4,
+    refresh = 0
+  )
+precis(m10.10stan.c)
+```
+
+#### R Code 10.51
+
+```{r, chunk10.51}
+num_days <- 30
+y <- rpois(num_days, 1.5)
+```
+
+#### R Code 10.52
+
+```{r, chunk10.52}
+num_weeks <- 4
+y_new <- rpois(num_weeks, 0.5 * 7)
+```
+
+#### R Code 10.53
+
+```{r, chunk10.53}
+D <- 
+  data_frame(
+    y_all = c(y, y_new),
+    days = c(rep(1, 30), rep(7, 4)),
+    monastery = c(rep(0, 30), rep(1, 4))
+  )
+```
+
+#### R Code 10.54
+
+```{r, chunk10.54}
+# compute the offset
+D <- D %>% mutate(log_days = log(days))
+
+# fit the model
+m10.15 <- 
+  map(
+    alist(
+      y ~ dpois(lambda),
+      log(lambda) <- log_days + a + b * monastery,
+      a ~ dnorm(0, 100),
+      b ~ dnorm(0, 1)
+    ),
+    data = D)
+```
+
+#### R Code 10.55
+
+```{r, chunk10.55}
+post <- extract.samples(m10.15) %>%
+  mutate(
+    lambda_old = exp(a),
+    lambda_new = exp(a + b)
+  )
+precis(post %>% select(lambda_old, lambda_new))
+```
+
+## Careers
+
+#### R Code 10.56
+
+```{r, chunk10.56}
+# simulate career choices among 500 individuals
+income <- 1:3        # expected income of each career
+score <- 0.5 * income  # scores for each career, based on income
+# next line converts scores to probabilities
+p <- softmax(score[1], score[2], score[3])
+p
+
+# sample chosen career for each individual
+career <- sample(1:3, size = 500, prob = p, replace = TRUE)
+tally(~career, format = "proportion")
+```
+
+#### R Code 10.57
+
+```{r, chunk10.57}
+# fit the model, using dcategorical and softmax link
+m10.16 <- 
+  map(
+    alist(
+      career ~ dcategorical(softmax(0, s2, s3)),
+      s2 <- b * 2,    # linear model for event type 2
+      s3 <- b * 3,    # linear model for event type 3
+      b ~ dnorm(0, 5)),
+    data = list(career = career))
+```
+
+#### R Code 10.58
+
+```{r, chunk10.58}
+F <-
+  data_frame(
+    family_income = runif(100),
+    career = NA
+  )
+    
+# assign a unique coefficient for each type of event
+b <- (1:-1)
+for (i in 1:nrow(F)) {
+  score <- 0.5 * (1:3) + b * F$family_income[i]
+  p <- softmax(score[1], score[2], score[3])
+  F$career[i] <- sample(1:3, size = 1, prob = p)
+}
+
+m10.17 <- map(
+  alist(
+    career ~ dcategorical(softmax(0, s2, s3)),
+    s2 <- a2 + b2 * family_income,
+    s3 <- a3 + b3 * family_income,
+    c(a2, a3, b2, b3) ~ dnorm(0, 5)
+  ),
+  data = F
+)
+```
+
+#### R Code 10.59
+
+```{r, chunk10.59}
+data(UCBadmit)
+Admit <- UCBadmit
+```
+
+#### R Code 10
+
+```{r, chunk10.60}
+# binomial model of overall admission probability
+m_binom <- 
+  map(
+    alist(
+      admit ~ dbinom(applications, p),
+      logit(p) <- a,
+      a ~ dnorm(0, 100)),
+    data = Admit)
+```
+
+```{r}
+# Poisson model of overall admission rate and rejection rate
+Admit <- Admit %>% rename(rej = reject) # 'reject' is a reserved word
+m_pois <- map2stan(
+  alist(
+    admit ~ dpois(lambda1),
+    rej ~ dpois(lambda2),
+    log(lambda1) <- a1,
+    log(lambda2) <- a2,
+    c(a1, a2) ~ dnorm(0, 100)
+  ),
+  data = Admit,
+  chains = 3,
+  cores = 3,
+  refresh = 0
+)
+```
+
+#### R Code 10.61
+
+```{r, chunk10.61}
+logistic(coef(m_binom))
+```
+
+#### R Code 10.62
+
+```{r, chunk10.62}
+k <- as.numeric(coef(m_pois))
+exp(k[1]) / (exp(k[1]) + exp(k[2]))
+```
+
+#### R Code 10.63
+
+```{r, chunk10.63}
+# simulate
+simData <- function(n = 100) {
+  data_frame(
+    x = runif(n),
+    y = rgeom(n, prob = logistic(-1 + 2 * x))
+  )
+}
+
+# estimate
+m10.18 <- 
+  map(
+    alist(y ~ dgeom(p),
+          logit(p) <- a + b * x,
+          a ~ dnorm(0, 10),
+          b ~ dnorm(0, 1)),
+    data = simData()
+  )
+precis(m10.18)
+```
+  
