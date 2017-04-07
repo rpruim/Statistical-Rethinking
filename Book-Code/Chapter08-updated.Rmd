@@ -201,7 +201,9 @@ m8.1stan <- map2stan(
 #### R Code 8.6
 
 ```{r, chunk8.6}
+show(m8.1stan)
 precis(m8.1stan)
+plot(m8.1stan)
 ```
 
 #### R Code 8.7
@@ -209,6 +211,7 @@ precis(m8.1stan)
 ```{r, chunk8.7}
 m8.1stan_4chains <- map2stan(m8.1stan, chains = 4, cores = 4)
 precis(m8.1stan_4chains)
+plot(m8.1stan_4chains)
 ```
 
 #### R Code 8.8
@@ -216,6 +219,9 @@ precis(m8.1stan_4chains)
 ```{r, chunk8.8}
 m8.1s.post <- extract.samples(m8.1stan)
 str(m8.1s.post)
+str(m8.1s.post %>% as.data.frame())
+gf_dens(~ bR, data = m8.1s.post %>% as.data.frame())
+
 ```
 
 #### R Code 8.9
@@ -242,6 +248,12 @@ show(m8.1stan)
 
 ```{r, chunk8.12}
 plot(m8.1stan)
+```
+
+Want to see raw Stan code?  Here it is.
+
+```{r}
+stancode(m8.1stan)
 ```
 
 #### R Code 8.13
