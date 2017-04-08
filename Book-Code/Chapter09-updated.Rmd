@@ -35,7 +35,13 @@ Code from *Statistical Rethinking* modified by R Pruim is shown below.  Differen
   * use of `tidyverse` for data transformation
   * better (in my opinion) naming conventions
   
-  
+
+
+## Max Entropy for Binomial Dists
+
+The examples below illustrate that the Binomial distributions are the maximum intropy
+distributions among distributions with a fixed expected number of successes.
+
 #### R Code 9.1
 
 ```{r, chunk9.1}
