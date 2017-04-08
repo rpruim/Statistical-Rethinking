@@ -53,6 +53,7 @@ q <- list(
 ```{r, chunk9.2}
 # convert counts to probabilities
 p <- purrr::map(q, ~ .x / sum(.x))
+p
 ```
 
 #### R Code 9.3

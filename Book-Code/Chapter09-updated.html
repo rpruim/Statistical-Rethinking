@@ -142,7 +142,22 @@ $(document).ready(function () {
 <div id="r-code-9.2" class="section level4">
 <h4>R Code 9.2</h4>
 <pre class="r"><code># convert counts to probabilities
-p &lt;- purrr::map(q, ~ .x / sum(.x))</code></pre>
+p &lt;- purrr::map(q, ~ .x / sum(.x))
+p</code></pre>
+<pre><code>## $A
+## [1] 0 0 1 0 0
+## 
+## $B
+## [1] 0.0 0.1 0.8 0.1 0.0
+## 
+## $C
+## [1] 0.0 0.2 0.6 0.2 0.0
+## 
+## $D
+## [1] 0.1 0.2 0.4 0.2 0.1
+## 
+## $E
+## [1] 0.2 0.2 0.2 0.2 0.2</code></pre>
 </div>
 <div id="r-code-9.3" class="section level4">
 <h4>R Code 9.3</h4>
