@@ -132,7 +132,7 @@ Chimps.pred <-
   )
 
 # build prediction ensemble
-chimps.ensemble <- ensemble(m10.1, m10.2, m10.3, data = Chimps.pred)
+chimps.ensemble <- ensemble(m10.1, m10.2, m10.3, data = Chimps.pred, refresh = 0)
 
 # summarize
 Chimps.pred <-
@@ -153,7 +153,7 @@ gf_line(pulled_left ~ combo + group::actor, data = Chimps,
         alpha = 0.6) %>%
   gf_ribbon(pred.p.lo + pred.p.hi ~ combo + fill:"red" + group:"1", data = Chimps.pred) %>%
   gf_line(pred.p ~ combo + group:"1" + color:"red", data = Chimps.pred) %>%
-  gf_labs(x = "prosocial on left / has partner", y = "proportion pulled left")
+  gf_labs(x = "prosocial on = left / has partner", y = "proportion pulled left")
 ```
 
 #### R Code 10.12
@@ -318,8 +318,7 @@ m10.6 <-
       a ~ dnorm(0, 10),
       bm ~ dnorm(0, 10)
     ),
-    data = Admit,
-    start = list(a = 5, b = 5))
+    data = Admit)
 ```
 ```{r, chunk10.23a}
 m10.7 <- 
@@ -713,7 +712,7 @@ Kline.pred <-
     contact = ifelse(contact_high == 1, "high", "low")
   )
 
-Kline.ens <- ensemble(m10.10, m10.11, m10.12, data = Kline.pred) 
+Kline.ens <- ensemble(m10.10, m10.11, m10.12, data = Kline.pred, refresh = 0) 
 Kline.pred <- 
   Kline.pred %>%
   mutate(
