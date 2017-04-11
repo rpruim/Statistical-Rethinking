@@ -161,7 +161,7 @@ Rethinking 7 &
 & & & Note: You can find replacement code for the code the author
 provides in the usual place online.
 \\ \hline
-13 & Wed 4/12 &
+13 & Thu 4/13 &
 Rethinking 10 &
 \mand[warm-up]{10E1 -- 10E2}
 \mand[likelihood]{10M1}
