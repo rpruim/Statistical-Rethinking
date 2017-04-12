@@ -62,6 +62,17 @@ Some of your printers don't do well with shading.  Here is a way to turn off sha
 gf_ribbon(ymin + ymax ~ x, data = ..., color = "navy", fill = NA)
 ```
 
+Choosing a gray background is also problematic if your printer doesn't
+handle grays well.  If you use the Rmd template in the `rethinking` package
+you will see that it includes the line
+
+```{r}
+theme_set(theme_minimal())
+```
+
+This sets up `ggplot2` and `ggformula` to use a white background (among
+other things) and will likely look better on a black and white printer.
+
 Also, note that `ggplotly()` only works in HTML documents.  You will 
 want to leave that out of printed work since you can't interact
 with printed plots.
@@ -96,8 +107,36 @@ fox.map <- map(
   ), 
   data = foxes,
 )
-fox.link <- link(fox.map)
 fox.pred1 <-
-  data_frame(
-    area = 
+  expand.grid(
+    area = seq(1, 5, by = 0.2),
+    groupsize = c(2, 4, 6)
+  )
+fox.link <- link(fox.map, data = fox.pred1)
+fox.pred1 <-
+  fox.pred1 %>% 
+  mutate(
+    weight.pred = apply(fox.link, 2, mean),
+    weight.link.lo = apply(fox.link, 2, PI)[1,],
+    weight.link.hi = apply(fox.link, 2, PI)[2,]
+    )
 ```
+Facets or colors (or both) can be used to show multiple predictions on one
+plot.  The use of `factor()` forces things to be treated as categorical even
+though they are coded as numbers.  This is required for the ribbons in the 
+first plot.
+
+```{r}
+gf_ribbon(weight.link.lo + weight.link.hi ~ area + fill::factor(groupsize), 
+          data = fox.pred1) %>%
+  gf_line(weight.pred ~ area + color::factor(groupsize), data = fox.pred1) 
+```
+
+```{r}
+gf_ribbon(weight.link.lo + weight.link.hi ~ area, data = fox.pred1) %>%
+  gf_line(weight.pred ~ area, data = fox.pred1) %>%
+  gf_facet_grid(~groupsize)
+```
+
+If you choose to overlay raw data, you want to make sure that you only use 
+data from groups of the sizes your predictions correspond to.
