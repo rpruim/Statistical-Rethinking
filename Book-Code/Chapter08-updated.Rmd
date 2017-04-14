@@ -184,9 +184,11 @@ m8.1stan <- map2stan(
     bAR ~ dnorm(0, 10),
     sigma ~ dcauchy(0, 2)
   ),
-  data = Nations.trim
+  data = Nations.trim,
+  refresh = 0
 )
 ```
+
 
 #### R Code 8.6
 
