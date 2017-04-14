@@ -95,7 +95,7 @@ various tanks.
 library(rethinking)
 data(reedfrogs)
 Frogs <- reedfrogs %>% 
-  mutate(tank = 1:nrow(Frogs))   # make the tank cluster variable
+  mutate(tank = 1:n())   # make the tank cluster variable
 glimpse(Frogs)
 ```
 
@@ -314,7 +314,8 @@ y2 <- 10 + rnorm(1e4, 0, 1)
 ```{r, chunk12.21}
 library(rethinking)
 data(chimpanzees)
-Chips <- chimpanzees %>% select(-recipient)   # get rid of NAs
+Chimps <- chimpanzees %>% select(-recipient)   # get rid of NAs
+
 
 m12.4 <- map2stan(
   alist(
