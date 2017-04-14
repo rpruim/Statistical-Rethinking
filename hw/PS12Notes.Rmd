@@ -1,0 +1,130 @@
+---
+title: "PS 12 Notes"
+author: "Stat 341 — Spring 2017"
+date: "April 12, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  cache = TRUE)
+require(rethinking)
+require(mosaic)
+require(ggformula)
+```
+
+
+### Think Jointly
+
+In the problem about leg length and height, it is important to think about the
+**joint** posterior distribution for `bl` and `br`.  If you look at the joint
+distribution, you can see what happens when we truncate the prior for `br`.
+
+```{r, chunk8.21, include = FALSE}
+N <- 100                            # number of individuals
+Legs <- 
+  data_frame(
+    height = rnorm(N, 10, 2),          # sim total height of each
+    leg_prop = runif(N, 0.4, 0.5),     # leg as proportion of height
+    leg_left  = leg_prop * height + rnorm(N, 0, 0.02),
+    leg_right = leg_prop * height + rnorm(N, 0, 0.02)
+  )
+```
+
+
+
+```{r, chunk8.22, include = FALSE}
+m5.8s <- map2stan(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + bl * leg_left + br * leg_right,
+    a ~ dnorm(10, 100),
+    bl ~ dnorm(2, 10),
+    br ~ dnorm(2, 10),
+    sigma ~ dcauchy(0, 1)
+  ),
+  data = Legs,
+  chains = 4, cores = 4,
+  start = list(a = 10, bl = 0, br = 0, sigma = 1),
+  refresh = 0
+)
+```
+
+
+```{r, chunk8.23, include = FALSE}
+m5.8s2 <- map2stan(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + bl * leg_left + br * leg_right,
+    a ~ dnorm(10, 100),
+    bl ~ dnorm(2, 10),
+    br ~ dnorm(2, 10) & T[0, ],
+    sigma ~ dcauchy(0, 1)
+  ),
+  data = Legs,
+  chains = 4, cores = 4,
+  start = list(a = 10, bl = 0, br = 0, sigma = 1),
+  refresh = 0
+)
+```
+
+```{r}
+m5.8s_post <- extract.samples(m5.8s) %>%  data.frame() %>% 
+  mutate(group = br > 0, model = "m5.8s")
+m5.8s2_post <- extract.samples(m5.8s2) %>% data.frame() %>%
+  mutate(model = "m5.8s2")
+gf_point(bl ~ br + color:group, data = m5.8s_post, alpha = 0.1) %>%
+  gf_point(bl ~ br, data = m5.8s2_post, alpha = 0.1) %>%
+  gf_facet_grid(. ~ model)
+```
+
+### Effective number of parameters
+
+Some of you are misunderstanding the notion of "effective number of parameters".
+Here are some things it **DOES NOT MEAN**
+  
+  * It does not try to identify which parameters are "effective" and which are not.
+  It is not "number of effective parameters" (there isn't such a thing).  The fact
+  that you get fractional amounts should be some indication of this.
+  
+  * It is not trying to measure how "effective" (whatever that means) the 
+  parameters are.
+  
+  * It is not an analogue to "statistical significance" which you might be 
+  familiar with from other classes.
+  
+**Effective number of parameters is a measure of how flexible the model can be 
+to fit the data.**  Generally, as you add parameters to a model, it become more 
+flexible.  But models with the same number of parameters are not equally 
+flexible. (This is one  of the problems with AIC -- it treats all models with
+the same number of parameters in the same way.)  If the effective number of
+parameters is less than the actual number of parameters, this is an indication
+that the model is not as flexible as some other models that have the same number
+of actual parameters. Possible reasons for the difference include:
+
+  * priors that restrict the flexibility of the model
+  
+  * correlation among predictor variables that lead to correlation in the 
+  posterior distribution for the parameters (see the leg length and height
+  problem, for example)
+ 
+For Multi-level models, the effective number of parameters may be much 
+smaller than the actual number of parameters.
+
+Both DIC and WAIC have a notion of "effective number of parameters".  As the
+effective number of parameters increases, the risk of overfitting increases,
+so DIC and WAIC decrease there estimate for how well the model will
+fit out-of-sample accordingly.  When comparing based on WAIC or DIC,
+models with a larger effective number of parameters are required to fit
+the sample data better than models with a smaller effective number of 
+parameters in order to "win the competition".
+
+### Divergent Transistions (and other Stan Warnings)
+
+You can find out about what "divergent transitions" means and what things you
+can do to fix this problem at
+[http://mc-stan.org/misc/warnings.html](http://mc-stan.org/misc/warnings.html#divergent-transitions-after-warmup).
+
+Other warnings are discussed on the same web page.
+

@@ -29,6 +29,14 @@ trellis.par.set(theme = theme.mosaic())
 theme_set(theme_light())
 ```
 
+Code from *Statistical Rethinking* modified by R Pruim is shown below.  Differences to the oringal include:
+
+  * a preference for putting data into containers (data frames, mostly), rather than working with lose vectors.
+  * use of `ggplot2` (via `ggformula`) rather than base graphics
+  * use of `tidyverse` for data transformation
+  * better (in my opinion) naming conventions
+  
+  
 ## Overfitting
 
 ### Brains Data

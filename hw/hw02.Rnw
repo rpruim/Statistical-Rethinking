@@ -161,6 +161,16 @@ Rethinking 7 &
 & & & Note: You can find replacement code for the code the author
 provides in the usual place online.
 \\ \hline
+13 & Thu 4/13 &
+Rethinking 10 &
+\mand[warm-up]{10E1 -- 10E2}
+\mand[likelihood]{10M1}
+\mand[link]{10M3}
+
+\mand[map vs stan]{10H1}
+\mand[chimp models]{10H2}
+\mand[eagle pirates]{10H3}
+\\ \hline
 \end{longtable}
 \end{center}
 

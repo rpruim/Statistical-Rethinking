@@ -25,6 +25,15 @@ knitr::opts_chunk$set(
 theme_set(theme_light())
 ```
 
+
+Code from *Statistical Rethinking* modified by R Pruim is shown below.  Differences to the oringal include:
+
+  * a preference for putting data into containers (data frames, mostly), rather than working with lose vectors.
+  * use of `ggplot2` (via `ggformula`) rather than base graphics
+  * use of `tidyverse` for data transformation
+  * better (in my opinion) naming conventions
+  
+  
 #### R Code 8.1
 
 The book does this as a chunk of code.  It is much nicer to wrap this
@@ -173,7 +182,7 @@ inspect(Nations.trim)  # No missing values among these three variables
 #### R Code 8.4
 
 Fit with Stan:
-```{r, chunk8.5}
+```{r, chunk8.5, results = "hide", message = FALSE}
 m8.1stan <- map2stan(
   alist(
     log_gdp ~ dnorm(mu, sigma),
@@ -193,7 +202,9 @@ m8.1stan <- map2stan(
 #### R Code 8.6
 
 ```{r, chunk8.6}
+show(m8.1stan)
 precis(m8.1stan)
+plot(m8.1stan)
 ```
 
 #### R Code 8.7
@@ -201,6 +212,7 @@ precis(m8.1stan)
 ```{r, chunk8.7}
 m8.1stan_4chains <- map2stan(m8.1stan, chains = 4, cores = 4)
 precis(m8.1stan_4chains)
+plot(m8.1stan_4chains)
 ```
 
 #### R Code 8.8
@@ -208,6 +220,9 @@ precis(m8.1stan_4chains)
 ```{r, chunk8.8}
 m8.1s.post <- extract.samples(m8.1stan)
 str(m8.1s.post)
+str(m8.1s.post %>% as.data.frame())
+gf_dens(~ bR, data = m8.1s.post %>% as.data.frame())
+
 ```
 
 #### R Code 8.9
@@ -234,6 +249,12 @@ show(m8.1stan)
 
 ```{r, chunk8.12}
 plot(m8.1stan)
+```
+
+Want to see raw Stan code?  Here it is.
+
+```{r}
+stancode(m8.1stan)
 ```
 
 #### R Code 8.13
