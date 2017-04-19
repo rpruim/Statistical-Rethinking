@@ -171,6 +171,23 @@ Rethinking 10 &
 \mand[chimp models]{10H2}
 \mand[eagle pirates]{10H3}
 \\ \hline
+14 & Fri 4/20 &
+Rethinking 12 &
+\mand[shrinkage]{12E1}
+\mand[multi-level]{12E2}
+\mand[multi-level]{12E3}
+\\ \hline
+15 & Mon 4/23 &
+Rethinking 12 &
+\mand[tadpoles]{12M1}
+
+More TBA
+
+
+Note: \code{coeftab()} is useful for comparing coefficients across
+different models.  I've updated the \pkg{rethinking} package so you
+can use square brackets to grab just some rows/columns to save some paper.
+\\ \hline
 \end{longtable}
 \end{center}
 
@@ -199,7 +216,8 @@ m <- map(
     a ~ dnorm(138, 10),
     b ~ dnorm(0, 10),
     sigma ~ dunif(0, 50)),
-  data = Howell.train
+  data = Howell.train,
+  start = list(a = 130, b = 4, sigma = 40)
 )
 -2 * logLik(m)
 mu <- link(m, data = Howell.test) %>% apply(2, mean)
@@ -265,6 +283,16 @@ Compute the entropy of tossing two coins two different ways:
 \item Consider the outcomes to be HH, HT, TH, or TT.
 \end{enumerate}
 How do the results compare?  Can you generalize?
+\end{problem}
+
+
+\begin{problem}
+
+\begin{enumerate}
+\item
+\item
+\end{enumerate}
+
 \end{problem}
 
 \label{end}
