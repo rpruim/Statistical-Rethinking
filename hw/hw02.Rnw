@@ -1,5 +1,5 @@
 
-\documentclass{scrartcl}
+\documentclass{article}
 \usepackage[margin=.5in,top=.3in,bottom=.4in,includehead,includefoot]{geometry}
 
 \usepackage{problems}
@@ -14,6 +14,7 @@
 %\usepackage{fullpage}
 \usepackage{alltt}
 \usepackage{sfsect}
+\usepackage{language}
 \usepackage{longtable}
 
 \usepackage[normalem]{ulem}
@@ -60,6 +61,7 @@
 \begin{document}
 
 <<setup, include = FALSE>>=
+require(rstan)
 require(rethinking)
 require(mosaic)
 require(rvest)
@@ -70,9 +72,10 @@ knitr::opts_chunk$set(
   # background = c(1, 1, 1),
   size = "small",
   fig.height = 2.5,
-  fig.width = 7
+  fig.width = 7,
+  cache = TRUE
 )
-theme_set(theme_minimal())
+theme_set(theme_bw())
 @
 
 \pagestyle{fancy}
@@ -171,22 +174,30 @@ Rethinking 10 &
 \mand[chimp models]{10H2}
 \mand[eagle pirates]{10H3}
 \\ \hline
-14 & Fri 4/20 &
+14 & Fri 4/21 &
 Rethinking 12 &
 \mand[shrinkage]{12E1}
 \mand[multi-level]{12E2}
 \mand[multi-level]{12E3}
 \\ \hline
-15 & Mon 4/23 &
+15 & Mon 4/24 &
 Rethinking 12 &
 \mand[tadpoles]{12M1}
-
-More TBA
-
-
+\mand[tadpoles]{12M2}
+\mand[priors]{12M3}
+\mand[contraception]{12H1}
+\\
+&&&
+Note: For problem 12M3, rather than have you all print out the model fitting and
+\function{precis()} code, I've included it below.  You don't need to include it in
+your print out.
+\\
+&&&
 Note: \code{coeftab()} is useful for comparing coefficients across
 different models.  I've updated the \pkg{rethinking} package so you
 can use square brackets to grab just some rows/columns to save some paper.
+Also, be sure to include \code{require(rstan)} as well as \code{require(rethinking)}
+now.
 \\ \hline
 \end{longtable}
 \end{center}
@@ -195,6 +206,55 @@ can use square brackets to grab just some rows/columns to save some paper.
 
 
 \subsection*{Replacement Code}
+
+\subsection*{12M3}
+
+This isn't really replacement code, I'm just going to save you some time by giving you
+code and output that you don't need to repeat in the work you turn in.  You
+can run the code and do other things if you like.  But don't include the code that
+creates this model or the precis output in your homework.  Let's save a tree.
+
+<<include = FALSE>>=
+data(reedfrogs)
+Frogs <- reedfrogs %>% mutate(tank = 1:n())   # make the tank cluster variable
+m.12h2 <- map2stan(
+  alist(
+    surv ~ dbinom(density, p),
+    logit(p) <- a_tank[tank],
+    a_tank[tank] ~ dnorm(a, sigma),
+    a ~ dnorm(0, 1),
+    sigma ~ dcauchy(0, 1)
+  ),
+  data = Frogs, refresh = 0, iter = 4000
+)
+@
+
+<<>>=
+data(reedfrogs)
+Frogs <- reedfrogs %>% mutate(tank = 1:n())   # make the tank cluster variable
+m.12h3 <- map2stan(
+  alist(
+    surv ~ dbinom(density, p),
+    logit(p) <- a_tank[tank],
+    a_tank[tank] ~ dcauchy(a, sigma),
+    a ~ dnorm(0, 1),
+    sigma ~ dcauchy(0, 1)
+  ),
+  data = Frogs, refresh = 0, iter = 4000
+)
+@
+
+<<fig.height = 6>>=
+precis(m.12h3)  # only the highest level parameters
+precis(m.12h3, depth = 2)      # all the parameters
+plot(precis(m.12h3, depth = 2))
+@
+
+<<>>=
+# this is mainly just to demo the new coeftab behavior
+coeftab(m.12h2, m.12h3)[c("a", "sigma"), ]
+@
+
 
 \subsubsection*{R Code 6.31}
 <<chunk6.31>>=
@@ -285,15 +345,6 @@ Compute the entropy of tossing two coins two different ways:
 How do the results compare?  Can you generalize?
 \end{problem}
 
-
-\begin{problem}
-
-\begin{enumerate}
-\item
-\item
-\end{enumerate}
-
-\end{problem}
 
 \label{end}
 \end{document}
