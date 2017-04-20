@@ -244,10 +244,10 @@ m.12h3 <- map2stan(
 )
 @
 
-<<fig.height = 6>>=
+<<fig.height = 6, cache = FALSE>>=
 precis(m.12h3)  # only the highest level parameters
 precis(m.12h3, depth = 2)      # all the parameters
-plot(precis(m.12h3, depth = 2))
+ggplot(precis(m.12h3, depth = 2))
 @
 
 <<>>=
