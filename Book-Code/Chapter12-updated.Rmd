@@ -737,10 +737,11 @@ gf_histogram(~ district, data = Bangladesh, binwidth = 1)
 
 #### R Code 12.43
 
-Here are two ways to convert to a proper index.  Notice that the results are not the same.
-The first is perhaps preferable since it retains the order of the original district numbers.
-(In the second one, 2, 3, 4, etc. come just before 20, 30, 40, etc. because "alphabetical" order
-is used rather than numerical order.
+Here are two ways to convert to a proper index.  Notice that the results are not
+the same. The first is perhaps preferable since it retains the order of the
+original district numbers. (In the second one, 2, 3, 4, etc. come just before
+20, 30, 40, etc. because "alphabetical" order is used rather than numerical
+order.
 
 ```{r, chunk12.43}
 Bangladesh <-
