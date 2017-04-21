@@ -214,7 +214,7 @@ Since Bayesian models are **generative**, for any choice of parameters, we shoul
 able to generate data that matches the way the model thinks data arise.  
 
 
-  9. For model `m12.2`, we do we need to choose to simulate data?
+  9. For model `m12.2`, what do we need to choose to simulate data?
   
 \newpage
 
@@ -272,6 +272,7 @@ m12.3 <- map2stan(
 
 ```{r, chunk12.14, include = FALSE}
 precis(m12.3, depth = 2)
+ggplot(precis(m12.3, depth = 2))
 ```
 
 #### Plotting with a function
