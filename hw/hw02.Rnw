@@ -64,6 +64,7 @@
 require(rstan)
 require(rethinking)
 require(mosaic)
+require(ggformula)
 require(rvest)
 require(readr)
 require(statisticalModeling)
@@ -266,10 +267,16 @@ precis(m.12h3c, depth = 2)      # all the parameters
 plot(precis(m.12h3g, depth = 2))
 plot(precis(m.12h3c, depth = 2))
 @
+<<fig.height = 7, fig.width = 3, fig.show = "hold", cache = FALSE>>=
+# alternative version using ggplot2 makes it easy to give both plots the same limits
+# using "y" limits because this plot is "flipped" by default
+ggplot(precis(m.12h3g, depth = 2)) %>% gf_lims(y = c(-4, 20))
+ggplot(precis(m.12h3c, depth = 2)) %>% gf_lims(y = c(-4, 20))
+@
 
 <<>>=
 # this is mainly just to demo the new coeftab behavior
-coeftab(m.12h2, m.12h3)[c("a", "sigma"), ]
+coeftab(m.12h2, m.12h3g, m.12h3c)[c("a", "sigma"), ]
 @
 
 
