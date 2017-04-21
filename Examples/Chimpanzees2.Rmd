@@ -1,0 +1,418 @@
+---
+title: "Chimpanzees, part 2"
+author: "Stat 341 — Spring 2017"
+date: "April, 2017"
+output:
+  pdf_document: 
+    fig_height: 1.8
+    fig_width: 3
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+require(rethinking)
+require(mosaic)
+require(ggformula)
+theme_set(theme_bw())
+library(rstan)
+knitr::opts_chunk$set(
+  fig.show = "hold",
+  cache = TRUE,
+  echo = TRUE,
+  eval = TRUE)
+options(width = 95)
+set.seed = 1234
+```
+
+### The Data
+
+```{r, chunk10.1, eval = TRUE, cache = FALSE}
+library(rethinking)
+data(chimpanzees)
+Chimps <- chimpanzees %>% 
+  mutate( 
+    recipient = ifelse(is.na(recipient), -1, recipient),  # to avoid missing data 
+    combo = paste0(prosoc_left, "/", condition))          # useful for plotting 
+Chimps %>% sample(3)  # 3 random rows
+```
+
+### Model with main effects, interaction, and varying intercepts
+
+Note: This is not the same as model `m12.4` in the text.
+
+```{r, chunk12.21a, include = FALSE}
+m12.4a <- map2stan(
+  alist(
+    pulled_left ~ dbinom(1, p),
+    logit(p) <- a + a_actor[actor] + 
+      bp * prosoc_left + bc * condition +  bpc * prosoc_left * condition,
+    a_actor[actor] ~ dnorm(0, sigma_actor),
+    c(a, bp, bc, bpc) ~ dnorm(0, 10),    # nifty short cut!
+    sigma_actor ~ dcauchy(0, 1)
+  ),
+  data = Chimps,
+  warmup = 1000, iter = 5000, chains = 4, cores = 3, refresh = 0
+)
+```
+
+```{r, ref.label = "chunk12.21a", eval = FALSE}
+```
+
+  
+  1. Describe how to modify the code above in a way that removes `a` from the second
+  line of the formula list but still fits the "same model".  
+  
+  2. In what sense are the two models "the same"?  In what ways are they different?
+
+\newpage
+
+#### Posterior samples
+
+```{r, chunk12.22}
+m12.4a_post <- extract.samples(m12.4a) 
+glimpse(m12.4a_post) 
+```
+
+  3. How does the result of `extract.samples()` change now that we have a multi-level
+  model?
+  
+  4. In a varying intercpets model, each actor has its own intercept.
+  In this model, what does the intercept for actor 7 represent?
+  
+  5. In a Bayesian model, there is a posterior distribution for this intercept.
+  Write a little R code that plots the posterior distribution of the 
+  intercept for actor 7.  
+
+  
+```{r, include = FALSE}
+m12.4a_postD <- 
+  m12.4a_post %>%
+  as.data.frame() %>%
+  bind_cols(
+    sapply(1:7, function(actor)
+      m12.4a_post$a + m12.4a_post$a_actor[, actor]) %>%
+      as.data.frame() %>%
+      setNames(paste0("intercept.", 1:7))
+  )
+```
+
+```{r}
+gf_dens(~intercept.7, data = m12.4a_postD)
+gf_dens(~ logistic(intercept.7), data = m12.4a_postD)
+```
+
+## A model with multiple clusters
+
+Again, this is not quite the same as in the book. I've added the other main effect.
+
+```{r, chunk12.23a, include = FALSE}
+# prep data 
+Chimps <-
+  Chimps %>% rename(block_id = block)   # name 'block' is reserved by Stan
+
+m12.5a <- map2stan(
+  alist(
+    pulled_left ~ dbinom(1, p),
+    logit(p) <- a + a_actor[actor] + a_block[block_id] +
+      bp * prosoc_left + bc * condition + bpc * condition * prosoc_left,
+    a_actor[actor] ~ dnorm(0, sigma_actor),
+    a_block[block_id] ~ dnorm(0, sigma_block),
+    c(a, bp, bc, bpc) ~ dnorm(0, 10),             # short cut again
+    c(sigma_actor, sigma_block) ~ dcauchy(0, 1)   # and again
+  ),
+  data = Chimps, warmup = 1000, iter = 6000, chains = 4, cores = 3, refresh = 0
+)
+```
+
+```{r, ref.label = "chunk12.23a", eval = FALSE}
+````
+
+  6. Explain how `m12.5a` differs from `m12.4a`.
+  
+```{r, chunk12.24, fig.height = 4, fig.width = 5, warning =FALSE}
+coef(m12.5a)
+# precis(m12.5a, depth = 2)     # saving some paper
+plot(precis(m12.5a, depth = 2)) # just show the plot
+```
+
+  7. What do you noitice when you compare actors to blocks?
+  
+  8. How do the comparisions below fit into this story?
+  
+```{r, chunk12.26}
+compare(m12.4a, m12.5a)@output %>% 
+  mutate(
+    logLik = c(logLik(m12.4a), m12.5a = logLik(m12.5a)),
+    dlogLik = logLik - logLik(m12.4a))
+```
+
+
+### Posterior samples
+
+Here's a quick trick for turning the list produced by `extract.samples()` into
+a data frame you can use for plotting.  Noice the way the names change.
+
+```{r, chunk12.25}
+m12.5a_post <- extract.samples(m12.5a) %>% data.frame()
+names(m12.5a_post)
+```
+
+```{r}
+gf_dens(~sigma_block + color::"block_id", data = m12.5a_post) %>%
+  gf_dens(~sigma_actor + color::"actor", data = m12.5a_post) %>%
+  gf_labs(x = "sigma") %>%
+  gf_lims(x = c(0,5))
+```
+
+#### Converting to a "long" format.
+
+If we convert our posterior samples from a "wide" format (one row per sample) to
+a "long" format (one row for each sample of each parameter, we can plot
+posterior distributions for multiple parameters even more easily.
+
+```{r, chunk12.25a, fig.width = 5}
+m12.5a_post_long <-  m12.5a_post %>% 
+          tidyr::gather(param, value) 
+m12.5a_post_long %>% head(3)
+gf_dens(~ value + color::param, alpha = 0.6,
+        data = m12.5a_post_long %>% filter(grepl("sigma", param)))
+```
+
+
+\newpage
+
+```{r, fig.height = 6}
+gf_dens(~ value, 
+        data = m12.5a_post_long %>% filter(grepl("a_actor\\.", param))) %>%
+  gf_vline(xintercept = 0, color = "red", alpha = 0.5, linetype = "dashed") %>%
+  gf_facet_grid( param ~ .)
+gf_dens(~ value,
+        data = m12.5a_post_long %>% filter(grepl("a_block\\.", param))) %>%
+  gf_vline(xintercept = 0, color = "red", alpha = 0.5, linetype = "dashed") %>%
+  gf_facet_grid( param ~ .)
+```
+
+
+\newpage
+
+#### R Code 12.27
+
+```{r, chunk12.27}
+m12.4a_pred <-
+  expand.grid(
+    prosoc_left = 0:1,
+    condition = 0:1,
+    actor = 1:7) %>%
+  mutate(
+    combo = paste0(prosoc_left, "/", condition)
+  )
+  
+link.m12.4a <- link(m12.4a, data = m12.4a_pred)
+m12.4a_pred <- m12.4a_pred %>% 
+  mutate(
+    p.pred = apply(link.m12.4a, 2, mean),
+    p.link.lo = apply(link.m12.4a, 2, PI)[1,],
+    p.link.hi = apply(link.m12.4a, 2, PI)[2,]
+  )
+```
+
+```{r}
+gf_ribbon(p.link.lo + p.link.hi ~ combo + group::"1", data = m12.4a_pred) %>%
+  gf_line(p.pred ~ combo + group::"1", data = m12.4a_pred) %>%
+  gf_facet_wrap( ~ actor)
+```
+
+#### R Code 12.28
+
+```{r, chunk12.28}
+m12.4a_post <- extract.samples(m12.4a) 
+m12.4a_postD <- m12.4a_post %>% data.frame()
+str(m12.4a_post)
+str(m12.4a_postD)
+```
+
+#### R Code 12.29
+
+```{r, chunk12.29}
+gf_dens( ~ a_actor.5, data = m12.4a_postD)
+m12.4a_post_long <- 
+  m12.4a_postD %>%
+  tidyr::gather(param, value)
+gf_dens( ~ value, data = m12.4a_post_long %>% filter(grepl("actor\\.", param))) %>%
+  gf_vline(xintercept = 0, color = "red", alpha = 0.5, linetype = "dashed") %>%
+  gf_facet_grid( param ~ .)
+```
+
+### Creating the link function manually
+
+For some models, it is necessary to create posterior values manually rather than with 
+`link()` or `sim()`.  Although this is not required here, we illustrate the manual approach
+by way of comparison.
+
+#### R Code 12.30
+
+```{r, chunk12.30}
+p.link <- function(prosoc_left, condition, actor, post = m12.4a_post) {
+  logodds <- 
+    with(post,
+         a + a_actor[, actor] + (bp + bpc * condition) * prosoc_left)
+  return(logistic(logodds))
+} 
+str(p.link(0, 0, 2))
+```
+
+#### R Code 12.31
+
+```{r, chunk12.31}
+G <- expand.grid(
+  prosoc_left = 0:1,
+  condition = 0:1,
+  actor = 1:7) %>%
+  mutate(
+    combo = paste0(prosoc_left, "/", condition)
+  )
+
+manual_link <-
+  with(G,    # saves having to type G$ repeatedly
+       mapply(p.link, prosoc_left, condition, actor)
+  ) 
+# Note: a column here for each row in G
+str(manual_link)
+dim(G)
+
+manual12.4_pred <- 
+  G %>%
+  mutate(
+    p.pred = apply(manual_link, 2, mean),
+    p.link.lo = apply(manual_link, 2, PI)[1,],
+    p.link.hi = apply(manual_link, 2, PI)[2,]
+  )
+```
+
+```{r}
+# replication of plot from above using home spun link
+gf_ribbon(p.link.lo + p.link.hi ~ combo + group::"1", data = manual12.4_pred) %>%
+  gf_line(p.pred ~ combo + group::"1", data = m12.4a_pred) %>%
+  gf_facet_wrap( ~ actor)
+```
+
+
+#### R Code 12.32
+
+```{r, chunk12.32}
+# don't need multiple actors this time
+G <- expand.grid(
+  prosoc_left = 0:1,
+  condition = 0:1,
+  actor = 1) %>%
+  mutate(
+    combo = paste0(prosoc_left, "/", condition)
+  )
+```
+
+#### R Code 12.33
+
+```{r, chunk12.33}
+# replace varying intercept samples with zeros
+# 1000 samples by 7 actors
+a_actor_zeros <- matrix(0, 1000, 7)
+```
+
+#### R Code 12.34
+
+```{r, chunk12.34}
+# note use of replace list
+m12.4a_link2 <- 
+  link(
+    m12.4a,
+    n = 1000,
+    data = G,
+    replace = list(a_actor = a_actor_zeros)
+  )
+
+m12.4a_pred2 <- 
+  G %>% 
+  mutate(
+    p.pred = apply(m12.4a_link2, 2, mean),
+    p.link.lo = apply(m12.4a_link2, 2, PI, prob = 0.8)[1,],
+    p.link.hi = apply(m12.4a_link2, 2, PI, prob = 0.8)[2,]
+  )
+
+
+gf_ribbon(p.link.lo + p.link.hi ~ combo + group::"1", data = m12.4a_pred2) %>%
+  gf_line(p.pred ~ combo + group::"doesn't matter what this is", data = m12.4a_pred2) %>%
+  gf_labs(x = "prosoc_left/condition", y = "proportion pulled left", title = "average actor")
+```
+
+#### R Code 12.35
+
+```{r, chunk12.35}
+# replace varying intercept samples with simulations
+m12.4a_post <- extract.samples(m12.4a)
+a_actor_sims <- 
+  rnorm(7000, 0, m12.4a_post$sigma_actor) %>%
+  matrix(1000, 7)   # reshape into a 1000 x 7 matrix
+```
+
+#### R Code 12.36
+
+```{r, chunk12.36}
+m12.4a_link3 <- 
+  link(
+    m12.4a,
+    n = 1000,
+    data = G,
+    replace = list(a_actor = a_actor_sims)
+  )
+```
+```{r}
+m12.4a_pred3 <- 
+  G %>% 
+  mutate(
+    p.pred = apply(m12.4a_link3, 2, mean),
+    p.link.lo = apply(m12.4a_link3, 2, PI, prob = 0.8)[1,],
+    p.link.hi = apply(m12.4a_link3, 2, PI, prob = 0.8)[2,]
+  )
+
+
+gf_ribbon(p.link.lo + p.link.hi ~ combo + group::"1", data = m12.4a_pred3) %>%
+  gf_line(p.pred ~ combo + group::"doesn't matter what this is", data = m12.4a_pred3) %>%
+  gf_labs(x = "prosoc_left/condition", y = "proportion pulled left", title = "marginal of actor")
+```
+
+
+#### R Code 12.37
+
+```{r, chunk12.37}
+m12.4a_post <- extract.samples(m12.4a) %>%
+  as.data.frame() %>%
+  mutate(
+    sim_a_actor = rnorm(16000, 0, sigma_actor)
+  )
+
+Actors50 <- 
+  expand.grid(
+    actor = 1:50,        # 50 simulated actors
+    prosoc_left = 0:1,
+    condition = 0:1) %>% 
+  mutate(
+    combo = paste0(prosoc_left, "/", condition),
+    logodds = 
+      m12.4a_post$a[actor] +
+      m12.4a_post$sim_a_actor[actor] +
+      (m12.4a_post$bp[actor] + m12.4a_post$bpc[actor] * condition) * prosoc_left,
+    p = logistic(logodds)
+  )
+```
+
+#### R Code 12.38
+
+```{r, chunk12.38}
+gf_line(p ~ combo + group::actor, data = Actors50, alpha = 0.3) %>%
+  gf_labs(
+    x = "prosoc_left/condition",
+    y = "proportion pulled left",
+    title = "50 simulated actors"
+  )
+```
+
