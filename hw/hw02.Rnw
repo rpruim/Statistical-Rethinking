@@ -263,8 +263,8 @@ precis(m.12h3g)  # only the highest level parameters
 precis(m.12h3c)  # only the highest level parameters
 precis(m.12h3g, depth = 2)      # all the parameters
 precis(m.12h3c, depth = 2)      # all the parameters
-plot(precis(m.12h3g, depth = 2), xlim = c(-5,20))
-plot(precis(m.12h3c, depth = 2), xlim = c(-5,20))
+plot(precis(m.12h3g, depth = 2))
+plot(precis(m.12h3c, depth = 2))
 @
 
 <<>>=
