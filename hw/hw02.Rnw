@@ -212,7 +212,11 @@ now.
 This isn't really replacement code, I'm just going to save you some time by giving you
 code and output that you don't need to repeat in the work you turn in.  You
 can run the code and do other things if you like.  But don't include the code that
-creates this model or the precis output in your homework.  Let's save a tree.
+creates these models or the precis output in your homework.  Let's save a tree.
+
+[Note: an earlier version of this only did the Cauchy model because I thought that this output
+for the Gaussian (ie, normal) model was in the book.  Turns out I remembered that incorrectly.  So
+now the output for both models is here for you.]
 
 <<include = FALSE>>=
 data(reedfrogs)
@@ -232,7 +236,17 @@ m.12h2 <- map2stan(
 <<>>=
 data(reedfrogs)
 Frogs <- reedfrogs %>% mutate(tank = 1:n())   # make the tank cluster variable
-m.12h3 <- map2stan(
+m.12h3g <- map2stan(
+  alist(
+    surv ~ dbinom(density, p),
+    logit(p) <- a_tank[tank],
+    a_tank[tank] ~ dnorm(a, sigma),
+    a ~ dnorm(0, 1),
+    sigma ~ dcauchy(0, 1)
+  ),
+  data = Frogs, refresh = 0, iter = 4000
+)
+m.12h3c <- map2stan(
   alist(
     surv ~ dbinom(density, p),
     logit(p) <- a_tank[tank],
@@ -244,10 +258,13 @@ m.12h3 <- map2stan(
 )
 @
 
-<<fig.height = 6, cache = FALSE>>=
-precis(m.12h3)  # only the highest level parameters
-precis(m.12h3, depth = 2)      # all the parameters
-plot(precis(m.12h3, depth = 2))
+<<fig.height = 7, fig.width = 3, fig.show = "hold", cache = FALSE>>=
+precis(m.12h3g)  # only the highest level parameters
+precis(m.12h3c)  # only the highest level parameters
+precis(m.12h3g, depth = 2)      # all the parameters
+precis(m.12h3c, depth = 2)      # all the parameters
+plot(precis(m.12h3g, depth = 2), xlim = c(-5,20))
+plot(precis(m.12h3c, depth = 2), xlim = c(-5,20))
 @
 
 <<>>=
