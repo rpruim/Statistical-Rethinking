@@ -1,0 +1,115 @@
+---
+title: "Problem Set 13 Notes"
+author: "Stat 341 -- Spring 2017"
+date: ''
+output:
+  html_document:
+    fig_height: 2.5
+    fig_width: 3.5
+  pdf_document:
+    fig_height: 2.5
+    fig_width: 3.5
+  word_document:
+    fig_height: 2.5
+    fig_width: 3.5
+---
+
+```{r, setup, include=FALSE}
+# Load packages here 
+require(rstan)
+require(rethinking)
+require(mosaic)   
+require(ggformula)
+
+# Some customization.  You can alter or delete as desired (if you know what you are doing).
+trellis.par.set(theme=theme.mosaic()) # change default color scheme for lattice
+knitr::opts_chunk$set(
+  tidy=FALSE,     # display code as typed
+  size="small",   # slightly smaller font for code
+  fig.show = "hold")   # all plots at end of chunk
+theme_set(theme_minimal())
+```
+
+
+### General comment
+
+As we get more and more familiar with creating models and extracting information
+from them in R, the emphasis should be turning toward what this output tells
+you, not just getting R to spit out a bunch of stuff that you make no comment
+about.  "Compare these models" does not mean use `compare()` and move on without
+discussion, for example.  Tell me what the output of `compare()` (or whatever 
+other things you do to compare the models) indicates.
+
+### 10M1
+
+I have a problem for you to look at in class that I hope will help clarify the issues
+with the likelihood function using aggregated vs. disaggregated data for a binomial model.
+
+### 10M3
+
+  1. The logit transformation goes from $(0,1)$ to $(-\infty, \infty)$, not the other way around.
+  (The logistic function goes the other way.)  In either case, in answering this question
+  you should address both the $(0,1)$ -- the probability scale -- and the $(-\infty, \infty)$
+  -- the linear model scale.
+  
+  2. You should know the formala for the logit function as well as how to use `logit()`.
+  
+### 10H1
+
+  1. Most of you pointed out that the MAP and Stan fits differ the most for parameter `a[2]`.
+  Most of you noted that the posterior distribution for `a[2]` (as fit by Stan) is skewed (so
+  MAP won't be able to fit it well, since MAP presumes all posteriors are normal, 
+  hence symmetric).  But most of you didn't discuss why `a[2]` is different from
+  the others.  What makes `a[2]` special?  Take another look.
+  
+  2. Some of you didn't notice that `a[2]` has the most skewed of the posterior 
+  distribution.  You could notice this a number of different ways, including simply
+  plotting the posterior distributions, or using `pairs()`.  You can also combine
+  `plot()` and `coeftab()` to get nice visual comparison of the estimates for each parameter.
+
+### 10H2
+
+  1. Most of you used `compare()` to compare the models, but then said nothing about the 
+  output.  I went easy on you for this, but the intent was not that you simply dump the
+  output of `compare()` but that you use that output to say something.
+  
+  2. If you mix Stan and MAP models in `compare()`, you will get a stern warning.  If you use
+  Stan for any of the models in the comparision, you should use Stan for all.
+  
+  3. If `rhat` is not 1, the first thing to try is a larger value of `iter` (perhaps also
+  setting `warmup`) so that you get more posterior sampling.  If that doesn't reduce
+  `rhat`, then there may be other issues.  If it does, you may simply need to give the 
+  sampler more time to converge to the posterior distribution.
+  
+  
+### 10H3: The Eagles
+
+  1. The biggest issues here were that some of you didn't do all of the things 
+  asked for.  Commonly ommitted items:
+
+    a. interpretating the parameters in part b.
+    
+    b. discussion of results in part c.
+    
+  2. Skewed posterior distributions from Stan are one indicator that `map()` might 
+  not suffice.  To be fair, one should also look for signs of problems with the Stan fit.
+  `rhat`, effective number of parameters, and the behavior of chains are good things
+  to inspect on that side of things. In this example, you should use Stan rather than
+  `map()` since there is clearly some skew in a couple of the posterior distributions.
+  
+  3. I went easy on the plots in part b because I decided that the question
+  wasn't worded as clearly as it might have been.  Note that for this model,
+  `link()` returns proportions but `sim()` returns counts.  So the author 
+  really wanted you to compare the results of `link()` and `sim()`, not to 
+  simply multiply the proportions from `link()` by `n` to get counts.  
+  
+  4. Adding the raw data to the plots makes them much more informative ragarding
+  model fit.
+  
+  5. Once you notice that WAIC things the interaction model is better, you should check to
+  see what the model things about that interaction.
+
+
+
+
+
