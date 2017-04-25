@@ -3,10 +3,10 @@ title: "Test 2 Info Sheet"
 author: ''
 date: "Stat 341 -- Spring 2017"
 output:
-  pdf_document:
+  html_document:
     fig_height: 2.5
     fig_width: 3.5
-  html_document:
+  pdf_document:
     fig_height: 2.5
     fig_width: 3.5
   word_document:
@@ -33,9 +33,12 @@ theme_set(theme_minimal())
 
   * In-class test: Friday, April 28
   * Take-home test: Due Monday, May 1 
-  * Both portions cover Chapters 1-10 and 12 of *Statistical Rethinking*, emphasizing material
-  since Chapter 5. (Note: We did not cover the portion of Chapter 10 dealing with Poison
-  models, and out coverage of Chapter 9 was quite light.)
+  * Both portions cover Chapters 1-10 of *Statistical Rethinking*, emphasizing material
+  since Chapter 5. 
+  
+    * Note: We did not cover the portion of Chapter 10 dealing with Poison models 
+    * Note: Our coverage of Chapter 9 was quite light
+    * Note: Multi-level models (aka hiearchical models) will NOT be covered on this test.
   
 ## Topics 
 
@@ -117,7 +120,6 @@ This list isn't meant to be exhaustive, but I hope it is useful in preparing for
     * linear models, including interaction effects
     * generalized linear models (link functions, etc.)
     * handling categorical variables
-    * multilevel models (aka heierarchical models, aka random effects models)
     
   8. Interpreting models
   
