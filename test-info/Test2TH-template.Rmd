@@ -1,0 +1,79 @@
+---
+title: "Test 2 -- Take Home Problems"
+author: "Your Name Here"
+date: "Stat 341 — Spring 2017"
+output:
+  html_document:
+    fig_height: 2.5
+    fig_width: 3.5
+  pdf_document:
+    fig_height: 2.5
+    fig_width: 3.5
+  word_document:
+    fig_height: 2.5
+    fig_width: 3.5
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  size = "small"
+  )
+options(width = 95)
+```
+
+```{r, include = FALSE}
+require(mosaic)
+require(rstan)
+require(rethinking)
+require(ggformula)
+theme_set(theme_bw())
+```
+
+```{r, loading-data}
+# load some data for this test.
+load(file = url("http://www.calvin.edu/~rpruim/data/s341/Test2.Rda"))
+```
+
+
+  1. Which model fits the data (in `Pallets2`) better?  How do you know?
+
+  2. Which model would you expect to fit next week's data better?  How much better?
+  Explain.
+  
+  3. If you stopped here (we're not going to do that), what would you conclude
+  about overall employee-to-employee variation?  Explain.
+  
+  4. Which employee does model `m2` think is best (most efficient)?  Worst?
+  
+  5. How sure is model `m2` that the most efficient employee is more efficient
+  than the least efficient employee?  Use posterior sampling to quantify your answer.
+  
+
+  6. What does `m3` say about day to day variation in the number of pallets repaired?  
+  
+  7. Comparing `m2` and `m3`, which seems to have a greater impact on the number 
+  of pallets repaired: the employee or the day?  Explain.
+  
+
+  8. Why is it important to include both employee and day in our model when
+  we are really only interested in differences among the employees?
+
+
+  9. The only difference between the definitions `m6` and `m7` is the priors.
+  What does this difference in priors do?
+  
+  10. What would happen if we used `dnorm(125, 20)` for both (sets of) 
+  normal priors?  Why is this not as good as `m6` and `m7`?
+  
+  11. What would happen if we used `dnorm(0, 10)` for both (sets of) 
+  normal priors?  Why is this not as good as `m6` and `m7`?
+
+  12. Time to pick your favorite model.  Explain how you chose it and provide 
+  at least one plot to show how well/poorly it works.
+  
+  13. Are there any indications of problems with the `map2stan()` fit for your 
+  favorite model?  (This should probably have been asked earlier, but I didn't
+  want you to have to do it for all of the models.)
+  
+
