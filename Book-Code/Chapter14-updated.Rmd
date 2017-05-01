@@ -1,0 +1,326 @@
+---
+title: "Statistical Rethinking (Code)"
+author: "Chapter 14"
+date: "May, 2017"
+output:
+  html_document: 
+    fig_height: 3.5
+  pdf_document: 
+    fig_height: 3.5
+---
+
+```{r, setup, include = FALSE}
+# Load packages here 
+require(rethinking)
+require(mosaic)   
+require(ggformula)
+
+# Some customization.  You can alter or delete as desired (if you know what you are doing).
+trellis.par.set(theme=theme.mosaic()) # change default color scheme for lattice
+knitr::opts_chunk$set(
+  cache = TRUE,
+  error = TRUE,
+  tidy = FALSE,     # display code as typed
+  size = "small",   # slightly smaller font for code
+  fig.show = "hold")   # all plots at end of chunk
+theme_set(theme_light())
+
+options(`mosaic:parallelMessage` = FALSE)
+set.seed(12345)
+```
+
+
+Code from *Statistical Rethinking* modified by R Pruim is shown below.  Differences to the oringal include:
+
+  * a preference for putting data into containers (data frames, mostly), rather than working with lose vectors.
+  * use of `ggplot2` (via `ggformula`) rather than base graphics
+  * use of `tidyverse` for data transformation
+  * better (in my opinion) naming conventions
+
+
+#### R code 14.1
+
+```{r, chunk14.1}
+ThreePancakes <-
+  data_frame(
+    id = 1:3,
+    A = c(0, 0, 1),
+    B = c(0, 1, 1)
+  )
+
+pancake_sample <- function(n, cakes = ThreePancakes) {
+  S <- sample(cakes, size = n, replace = TRUE)
+  S %>% mutate(
+    up_side = ifelse(rbinom(n, 1, 0.5), "A", "B"),
+    up = ifelse(up_side == "A", A, B),
+    down = ifelse(up_side == "A", B, A)
+  )
+}
+
+# sim 10,000 pancakes
+Pancakes <- pancake_sample(n = 1e4)
+
+head(Pancakes)
+
+# if top is 1, what is prob that bottom is also 1
+Pancakes %>%
+  filter(up == 1) %>%
+  summarise(n = n(), prop_down1 = sum(down) / n)
+```
+
+#### R code 14.2
+
+```{r, chunk14.2}
+data(WaffleDivorce)
+
+gf_pointrange(
+  Divorce + (Divorce - Divorce.SE) + (Divorce + Divorce.SE) ~ MedianAgeMarriage, 
+  data = WaffleDivorce, alpha = .5) %>%
+  gf_labs(x ="Median age marriage", y = "Divorce rate")
+```
+
+#### R code 14
+
+```{r, chunk14.3}
+Div2 <-
+  with(WaffleDivorce,
+       data_frame(
+         div_obs = Divorce,
+         div_sd = Divorce.SE,
+         mar_obs = Marriage,
+         mar_sd = Marriage.SE,
+         age_obs = MedianAgeMarriage
+       )
+  ) 
+
+m14.1 <- map2stan(
+  alist(
+    div_est ~ dnorm(mu, sigma),
+    mu <- a + bA * age_obs + bR * mar_obs,
+    div_obs ~ dnorm(div_est, div_sd),
+    a ~ dnorm(0, 10),
+    bA ~ dnorm(0, 10),
+    bR ~ dnorm(0, 10),
+    sigma ~ dcauchy(0, 2.5)
+  ),
+  data = Div2, start = list(div_est = Div2$div_obs),
+  WAIC = FALSE,
+  iter = 5000, warmup = 1000, chains = 2, cores = 2,
+  control = list(adapt_delta = 0.95), refresh = 0
+)
+```
+
+#### R code 14.4
+
+```{r, chunk14.4}
+precis(m14.1, depth = 2)
+```
+
+#### R code 14.5
+
+```{r, chunk14.5}
+m14.2 <- map2stan(
+  alist(
+    div_est ~ dnorm(mu, sigma),
+    mu <- a + bA * age_obs + bR * mar_est[i],
+    div_obs ~ dnorm(div_est, div_sd),
+    mar_obs ~ dnorm(mar_est, mar_sd),
+    a ~ dnorm(0, 10),
+    bA ~ dnorm(0, 10),
+    bR ~ dnorm(0, 10),
+    sigma ~ dcauchy(0, 2.5)
+  ),
+  data = Div2,
+  start = list(div_est = Div2$div_obs, mar_est = Div2$mar_obs),
+  WAIC = FALSE, iter = 5000, warmup = 1000, chains = 3, cores = 3,
+  control = list(adapt_delta = 0.95), refresh = 0
+)
+```
+
+```{r}
+precis(m14.2)
+```
+
+#### R code 14.6
+
+```{r, chunk14.6}
+data(milk)
+Milk <- milk %>%
+  mutate(
+    neocortex = neocortex.perc / 100,   # proportion instead of precent
+    logmass = log(mass),     # map2stan() can't compute on the fly, we have to do it in advance
+    kcal = kcal.per.g        # b/c we are going to delete kcal.per.g in a moment
+  ) %>% 
+  select(- matches("\\."))    # avoid dots -- Stan doesn't like them
+# Notice the missing values
+favstats( ~ neocortex, data = Milk)
+```
+
+#### R code 14.7
+
+```{r, chunk14.7}
+# fit model
+m14.3 <- map2stan(
+  alist(
+    kcal ~ dnorm(mu, sigma),
+    mu <- a + bN * neocortex + bM * logmass,
+    neocortex ~ dnorm(nu, sigma_N),
+    a ~ dnorm(0, 100),
+    c(bN, bM) ~ dnorm(0, 10),
+    nu ~ dnorm(0.5, 1),
+    sigma_N ~ dcauchy(0, 1),
+    sigma ~ dcauchy(0, 1)
+  ),
+  data = Milk, iter = 1e4, chains = 2, refresh = 0
+)
+
+```
+
+#### R code 14.8
+
+```{r, chunk14.8}
+precis(m14.3, depth = 2)
+```
+
+#### R code 14.9
+
+```{r, chunk14.9}
+# remove the rows with missing neocortex
+Milkcc <- Milk %>% filter(!is.na(neocortex))
+
+# fit model
+m14.3cc <- map2stan(
+  alist(
+    kcal ~ dnorm(mu, sigma),
+    mu <- a + bN * neocortex + bM * logmass,
+    a ~ dnorm(0, 100),
+    c(bN, bM) ~ dnorm(0, 10),
+    sigma ~ dcauchy(0, 1)
+  ),
+  data = Milkcc, iter = 1e4, chains = 2, refresh = 0
+)
+precis(m14.3cc)
+```
+
+#### R code 14.10
+
+```{r, chunk14.10}
+m14.4 <- map2stan(
+  alist(
+    kcal ~ dnorm(mu, sigma),
+    mu <- a + bN * neocortex + bM * logmass,
+    neocortex ~ dnorm(nu, sigma_N),
+    nu <- a_N + gM * logmass,
+    a ~ dnorm(0, 100),
+    c(bN, bM, gM) ~ dnorm(0, 10),
+    a_N ~ dnorm(0.5, 1),
+    sigma_N ~ dcauchy(0, 1),
+    sigma ~ dcauchy(0, 1)
+  ),
+  data = Milk,
+  iter = 1e4,
+  chains = 2
+)
+precis(m14.4, depth = 2)
+```
+
+#### R code 14.11
+
+```{r, chunk14.11}
+nc_missing <- ifelse(is.na(Milk$neocortex), 1, 0)
+nc_missing <- nc_missing * cumsum(nc_missing)
+nc_missing
+```
+
+#### R code 14.12
+
+```{r, chunk14.12}
+nc <- ifelse(is.na(Milk$neocortex), -1, Milk$neocortex)
+nc
+```
+
+#### R code 14.13
+
+```{r, chunk14.13}
+model_code <- '
+  data{
+    int N;
+    int nc_num_missing;
+    vector[N] kcal;
+    real neocortex[N];
+    vector[N] logmass;
+    int nc_missing[N];
+  }
+  parameters{
+    real alpha;
+    real<lower=0> sigma;
+    real bN;
+    real bM;
+    vector[nc_num_missing] nc_impute;
+    real mu_nc;
+    real<lower=0> sigma_nc;
+  }
+  model{
+    vector[N] mu;
+    vector[N] nc_merged;
+    alpha ~ normal(0,10);
+    bN ~ normal(0,10);
+    bM ~ normal(0,10);
+    mu_nc ~ normal(0.5,1);
+    sigma ~ cauchy(0,1);
+    sigma_nc ~ cauchy(0,1);
+    // merge missing and observed
+    for (i in 1:N) {
+      nc_merged[i] <- neocortex[i];
+      if (nc_missing[i] > 0) nc_merged[i] <- nc_impute[nc_missing[i]];
+    }
+    // imputation
+    nc_merged ~ normal(mu_nc, sigma_nc);
+    // regression
+    mu = alpha + bN*nc_merged + bM*logmass;
+    kcal ~ normal(mu, sigma);
+  }'
+```
+
+#### R code 14.14
+
+```{r, chunk14.14}
+data_list <- 
+  with(Milk,
+       list(
+         N = nrow(Milk),
+         kcal = kcal,
+         neocortex = nc,
+         logmass = logmass,
+         nc_missing = nc_missing,
+         nc_num_missing = max(nc_missing)
+       )
+  )
+start <- list(
+  alpha = mean(Milk$kcal),
+  sigma = sd(Milk$kcal),
+  bN = 0,
+  bM = 0,
+  mu_nc = 0.68,
+  sigma_nc = 0.06,
+  nc_impute = rep(0.5, max(nc_missing))
+)
+library(rstan)
+m14.3stan <-
+  stan(
+    model_code = model_code,
+    data = data_list,
+    init = list(start),
+    iter = 1e4,
+    chains = 1
+  )
+```
+
+#### R code 14.15
+
+```{r, chunk14.15}
+set.seed(100)
+x <- c(rnorm(10), NA)
+y <- c(rnorm(10, x), 100)
+d <- list(x = x, y = y)
+```
