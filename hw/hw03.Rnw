@@ -131,6 +131,10 @@ Additional assignments will be filled in over time.
   \endhead
 15 & Fri 5/5 &
 Rethinking 14 &
+\mand[divorce]{14M3}
+\\ \hline
+& & Additional Problems &
+\mand[plots]{1--2}
 \\ \hline
 \end{longtable}
 \end{center}
@@ -138,7 +142,6 @@ Rethinking 14 &
 % \mand[regularizing prior]{6H6}
 
 
-\subsection*{Replacement Code}
 
 
 \subsection*{Additional Problems}
@@ -148,6 +151,53 @@ Create the plots in Figure 14.2.  If you are working in black-and-white, you mig
 plot on the right into two plots so that it is easier to distinguish the two models.
 \end{problem}
 
+\begin{problem}
+Create the plots in Figure 14.3.  You might like to use \verb!gf_segment()!
+for the line segments part.
+\end{problem}
+
+%
+% \begin{problem}
+% \end{problem}
+%
+% \begin{solution}
+%
+% <<>>=
+% Div2 <-
+%   with(WaffleDivorce,
+%        data_frame(
+%          div_obs = Divorce,
+%          div_sd = Divorce.SE,
+%          mar_obs = Marriage,
+%          mar_sd = Marriage.SE,
+%          age_obs = MedianAgeMarriage
+%        )
+%   )
+%
+% m1 <- map2stan(
+%   alist(
+%     div_est ~ dnorm(mu, sigma),
+%     mu <- a + bA * age_est[i] + bR * mar_est[i],
+%     div_obs ~ dnorm(div_est, div_sd),
+%     mar_obs ~ dnorm(mar_est, mar_sd),
+%     age_obs ~ dnorm(age_est, age_sd),
+%     a ~ dnorm(0, 10),
+%     bA ~ dnorm(0, 10),
+%     bR ~ dnorm(0, 10),
+%     age_sd ~ dcauchy(0,2.5),
+%     sigma ~ dcauchy(0, 2.5)
+%   ),
+%   data = Div2,
+%   start = list(div_est = Div2$div_obs,
+%                mar_est = Div2$mar_obs,
+%                age_est = Div2$age_obs),
+%   WAIC = FALSE, iter = 5000, warmup = 1000, chains = 3, cores = 3,
+%   control = list(adapt_delta = 0.95), refresh = 0
+% )
+% @
+% \end{solution}
+
+%\subsection*{Replacement Code}
 
 \label{end}
 \end{document}
