@@ -1,0 +1,92 @@
+---
+title: 'Some Review Problems '
+author: "Stat 341 -- Spring 2017"
+date: ''
+output:
+  pdf_document:
+    fig_height: 2.5
+    fig_width: 3.5
+  html_document:
+    fig_height: 2.5
+    fig_width: 3.5
+  word_document:
+    fig_height: 2.5
+    fig_width: 3.5
+---
+
+```{r, setup, include=FALSE}
+# Load packages here 
+require(rstan)
+require(rethinking)
+require(mosaic)   
+require(ggformula)
+
+# Some customization.  You can alter or delete as desired (if you know what you are doing).
+trellis.par.set(theme=theme.mosaic()) # change default color scheme for lattice
+knitr::opts_chunk$set(
+  cache = TRUE,
+  tidy=FALSE,     # display code as typed
+  size="small",   # slightly smaller font for code
+  fig.show = "hold")   # all plots at end of chunk
+theme_set(theme_bw())
+```
+
+### 10H1 recap
+
+In problem 10H1, one parameter in particular showed a substantial difference between
+the MAP fit and the Stan fit.  Which parameter?  Why that one?  (This is an example of 
+a general principle, and a reason to be cautious about using MAP for logistic regression 
+models.)
+
+### Two little models went out to play
+
+Consider the following models. (Note: since no prior is given, both are using
+uniform priors.)
+
+```{r}
+D1 <- data_frame(x = c(1L, 0L, 1L))
+m1 <-  map( alist(
+  x ~ dbinom(1, p),
+  logit(p) ~ a,
+  a ~ dnorm(0, 4)
+), data = D1)
+```
+```{r}
+D2 <- data_frame(x = 2L, n = 3L)
+m2 <- 
+  map( alist( 
+    x ~ dbinom(n, p),
+    logit(p) ~ a,
+    a ~ dnorm(0, 4)
+  ), data = D2)
+```
+
+  1. Here is the precis output for the first model. 
+  What value of `p` is associated with mean of the posterior distribution for `a`?
+  
+```{r}
+precis(m1)
+```
+ 
+  2. Let $L_1(p)$ and $L_2(p)$ be the likelihood functions for the two models
+  for a given value of $p$. For each pair below, without making any
+  computations, determine which is larger and explain how you know.
+  
+      * $L_1(0.5)$ or $L_1(0.6)$?  
+      * $L_2(0.5)$ or $L_2(0.6)$?  
+      * $L_1(0.6)$ or $L_2(0.6)$?  
+  
+  3. These models and data sets are simple enough that you should be able to
+  compute the likelihood function for each by hand. Let's do it for `p = 0.5`
+  and `p = 0.6` (for each model).
+  
+  4. Determine the values of $L_1(0.5) / L_2(0.5)$ and $L_1(0.6) / L_2(0.6)$.
+  
+  5. Without running the code, say what the result of the following code chunk would be
+  
+```{r, eval = FALSE}
+exp(logLik(m1)) / exp(logLik(m2))
+```
+
+  6. What output will be produced by `precis(m2)`
+
