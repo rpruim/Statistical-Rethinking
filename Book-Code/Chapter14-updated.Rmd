@@ -79,7 +79,7 @@ gf_pointrange(
   gf_labs(x ="Median age marriage", y = "Divorce rate")
 ```
 
-#### R code 14
+#### R code 14.3
 
 ```{r, chunk14.3}
 Div2 <-
@@ -89,10 +89,14 @@ Div2 <-
          div_sd = Divorce.SE,
          mar_obs = Marriage,
          mar_sd = Marriage.SE,
-         age_obs = MedianAgeMarriage
+         age_obs = MedianAgeMarriage,
+         population = Population,
+         state = Location
        )
   ) 
+```
 
+```{r}
 m14.1 <- map2stan(
   alist(
     div_est ~ dnorm(mu, sigma),
@@ -115,6 +119,132 @@ m14.1 <- map2stan(
 ```{r, chunk14.4}
 precis(m14.1, depth = 2)
 ```
+
+### Figure 14.2
+
+#### Show me the data!
+
+We need to do a little guesswork here, because the description of the plot is missing
+a couple details.  But they are easy enough to guess given the usual practices of 
+the author.
+
+  * likely the marriage rate was set to the mean or median for the counterfactual data
+  * the "other model" is the one that is like `m14.1` but doesn't include estimation
+  of `div_est` and just uses `div_obs`.  We'll call that model `m14.0` below.
+ 
+The plots themeselves are easily made -- one you get the data into a handy format.
+A first step for that is to figure out where the data we need for the plot 
+live.  Here are some options:
+
+  * The original data frame
+  * A lightly transformed version of the origianl data frame (perhaps with new 
+  variable names, missing data removed, or some additional variables calculated)
+  * Counterfactual data that we create.
+  * The `precis` object.
+  * The results of using `link()`, `sim()` or `ensemble()`.
+
+Sometimes these work in combination.  For example, we may create counterfactual
+data and pass that along as the `data` argument to `link()` or `sim()` or 
+`ensemble()`, or we might average values from one object and add them as
+a new column in another.
+
+In some cases, we also need to figure out how to extract that data from those
+objects to put them into a data frame (because that's the format `ggformula`,
+requires). `glimpse()` (or `str()`) can be useful for inspecting objects to see
+how they are organized.
+
+#### Obtaining information from precis output
+
+```{r}
+m14.1_precis <- precis(m14.1, depth = 2)   
+glimpse(m14.1_precis)     # look at structure of the precis object
+m14.1_coef <- coef(m14.1)   
+glimpse(m14.1_coef)       # look at structure of the coef object
+```
+
+```{r}
+Div3 <-
+  Div2 %>%
+  mutate(
+    div_est = m14.1_precis@output$Mean[1:50],
+    div_est2 = m14.1_coef[1:50],  # alternative method
+    div_est_se = m14.1_precis@output$StdDev[1:50]
+  )
+gf_abline(slope = 1, yintercept = 0, color = "red") %>% 
+  gf_point(div_est2 ~ div_est, data = Div3) %>% 
+  gf_labs(title = "Two methods of extracting coefficients give identical results")
+```
+
+```{r}
+gf_point( (div_est - div_obs) ~ div_sd, data = Div3)
+```
+
+#### Using counterfactual data to look at model predictions
+
+```{r}
+favstats( ~ mar_obs, data = Div3)
+CounterFactualData <-
+  expand.grid(age_obs = seq(23, 30, by = 0.25), mar_obs = 20)
+m14.1_link <- link(m14.1, data = CounterFactualData)
+CounterFactualData <- 
+  CounterFactualData %>% 
+  mutate(
+    div_m14.1 = apply(m14.1_link, 2, mean),
+    div_m14.1_lo = apply(m14.1_link, 2, PI)[1, ],
+    div_m14.1_hi = apply(m14.1_link, 2, PI)[2, ]
+  )
+head(CounterFactualData, 3)
+```
+
+
+```{r}
+gf_pointrange( 
+  div_est + (div_est - div_est_se) + (div_est + div_est_se) ~ age_obs,
+  data = Div3) %>%
+  gf_ribbon(div_m14.1_lo + div_m14.1_hi ~ age_obs, data = CounterFactualData, fill = "navy") %>%
+  gf_line(div_m14.1 ~ age_obs, data = CounterFactualData, color = "navy") 
+```
+
+#### The "other model"
+
+To get the "other model", we need to fit a simpler model that doesn't estimate divorce rates.
+
+```{r}
+m14.0 <- map2stan(
+  alist(
+    div_obs ~ dnorm(mu, sigma),
+    mu <- a + bA * age_obs + bR * mar_obs,
+    a ~ dnorm(30, 20),
+    bA ~ dnorm(0, 10),
+    bR ~ dnorm(0, 10),
+    sigma ~ dcauchy(0, 2.5)
+  ),
+  data = Div2, 
+  WAIC = FALSE, iter = 5000, warmup = 1000, chains = 2, cores = 2, refresh = 0 )
+```
+
+```{r}
+m14.0_link <- link(m14.0, data = CounterFactualData)
+CounterFactualData <- 
+  CounterFactualData %>% 
+  mutate(
+    div_m14.0 = apply(m14.0_link, 2, mean),
+    div_m14.0_lo = apply(m14.0_link, 2, PI)[1, ],
+    div_m14.0_hi = apply(m14.0_link, 2, PI)[2, ]
+  )
+head(CounterFactualData, 3)
+```
+
+```{r}
+gf_pointrange( 
+  div_est + (div_est - div_est_se) + (div_est + div_est_se) ~ age_obs,
+  data = Div3) %>%
+  gf_ribbon(div_m14.1_lo + div_m14.1_hi ~ age_obs, data = CounterFactualData, fill = "navy") %>%
+  gf_line(div_m14.1 ~ age_obs, data = CounterFactualData, color = "navy") %>%
+  gf_ribbon(div_m14.0_lo + div_m14.0_hi ~ age_obs, data = CounterFactualData) %>%
+  gf_line(div_m14.0 ~ age_obs, data = CounterFactualData, linetype = "dashed") 
+```
+
 
 #### R code 14.5
 
@@ -139,6 +269,47 @@ m14.2 <- map2stan(
 
 ```{r}
 precis(m14.2)
+```
+
+#### Figure 14.3
+
+This plot is easier than Figure 14.2 because we don't have to 
+work with counterfactual data, so there is one less step.  We
+can get everything we need from the `precis()` output.
+
+```{r}
+m14.2_precis <-  precis(m14.2, depth = 2)
+Div4 <-
+  Div2 %>%
+  mutate(
+    div_est = m14.2_precis@output$Mean[1:50],
+    div_est_se = m14.2_precis@output$StdDev[1:50],
+    mar_est = m14.2_precis@output$Mean[51:100],
+    mar_est_se = m14.2_precis@output$StdDev[51:100]
+  )
+```
+
+ 
+```{r}
+gf_point( (mar_est - mar_obs) ~ mar_sd, data = Div4)
+```
+
+  
+The version below adds an extra element not in the text.
+It showing the population of the states (larger dots for 
+smaller states because they have more uncertainty).  
+As we can see, 
+
+ * estimates generally move toward the average (the red dots are closer to the
+ center than their associated blue dots in most cases)
+ * the estimates change more when states are smaller
+ 
+```{r}
+gf_point(div_est ~ mar_est + color::"estimated" + size:population, data = Div4, alpha = 0.6) %>%
+  gf_point(div_obs ~ mar_obs + color::"observed" + size:population, data = Div4, alpha = 0.6) %>%
+  gf_segment(div_est + div_obs ~ mar_est + mar_obs, data = Div4, alpha = 0.5) %>%
+  gf_labs(x = "marriage rate", y = "divorce rate") %>%
+  gf_refine(scale_size_continuous(trans = "reciprocal"))
 ```
 
 #### R code 14.6
@@ -323,4 +494,34 @@ set.seed(100)
 x <- c(rnorm(10), NA)
 y <- c(rnorm(10, x), 100)
 d <- list(x = x, y = y)
+```
+
+
+#### Doubling standard errors
+
+This model using double the standard errors and doesn't fit efficiently.  (I don't think that 
+was the point the author was looking for, but it is true.)  The "divergent iterations" warnings
+indicate that at best, the model is converging slowly and at worst, it is not converging at all.
+
+```{r}
+m14.2b <- map2stan(
+  alist(
+    div_est ~ dnorm(mu, sigma),
+    mu <- a + bA * age_obs + bR * mar_obs,
+    div_obs ~ dnorm(div_est, div_sd),
+    a ~ dnorm(0, 10),
+    bA ~ dnorm(0, 10),
+    bR ~ dnorm(0, 10),
+    sigma ~ dcauchy(0, 2.5)
+  ),
+  data = Div2 %>% mutate(div_sd = 2 * div_sd, mar_sd = 2 * mar_sd),
+  start = list(div_est = Div2$div_obs),
+  WAIC = FALSE, iter = 500, warmup = 100, chains = 4, cores = 2,
+  control = list(adapt_delta = 0.99), refresh = 0
+)
+```
+
+```{r}
+plot(m14.2b)
+traceplot(m14.2b@stanfit)
 ```
