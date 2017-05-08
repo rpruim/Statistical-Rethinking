@@ -1,0 +1,408 @@
+---
+title: "Poisson Models"
+author: "Stat 341 -- Spring 2017"
+date: ''
+output:
+  pdf_document:
+    fig_height: 2.1
+    fig_width: 3.5
+  html_document:
+    fig_height: 2.5
+    fig_width: 3.5
+  word_document:
+    fig_height: 2.5
+    fig_width: 3.5
+---
+
+```{r, setup, include=FALSE}
+# Load packages here 
+require(rstan)
+require(rethinking)
+require(mosaic)   
+require(ggformula)
+
+# Some customization.  You can alter or delete as desired (if you know what you are doing).
+trellis.par.set(theme=theme.mosaic()) # change default color scheme for lattice
+knitr::opts_chunk$set(
+  cache = TRUE,
+  tidy=FALSE,     # display code as typed
+  size="small",   # slightly smaller font for code
+  fig.show = "hold")   # all plots at end of chunk
+theme_set(theme_bw())
+```
+
+## Thinking about Poisson distributions
+
+### Limiting case of binomial
+
+We have used binomial distributions to model counts.  In a binomial
+distribution, we envision $n$ trials, each with probability $p$ of 
+success, and we count the successes.
+The mean and variance of a $\mathrm{Binom}(n,p)$ distribution
+are $np$ an $np(1-p)$.  
+
+  1. Now consider all binomial distributions where $np = \lambda$ for some $\lambda$.
+As $n \to \infty$, 
+
+    * $p \to \phantom{0}$  
+
+    * $1-p \to \phantom{1}$
+
+    * $np(1-p) \to \phantom{np = \lambda}$
+
+ 
+  2. The limiting distribution is called the Poisson distriubtion
+with paramter $\lambda$ -- written $\mathrm{Pois(\lambda)}$.
+
+    * expected value of $\mathrm{Pois}(\lambda)$:
+  
+    * variance of $\mathrm{Pois}(\lambda)$:
+
+#### Example
+
+Consider a $\mathrm{Binom}(5000, 1/1000)$ distribution.  On average we would
+expect to see 5 events, so the mean and variance are both approximately 5.
+The $\mathrm{Binom}(n, p)$ and $\mathrm{Pois}(5)$ distributions are visually indistinguishable
+in the plot below.
+
+```{r, chunk10.38, fig.keep = "last", fig.height = 1.7}
+y <- rbinom(1e5, 5000, 1 / 1000)
+c(mean(y), var(y))
+plotDist("binom", size = 5000, prob = 1/1000)
+plotDist("pois", lambda = 5, add = TRUE, type = "p", cex = 1.5, pch = 1)
+```
+
+### Counting events from an exponential process
+
+An exponential process is one in which "events" occur at random times (or in 
+random places) and are equally likely to occur in any small interval of 
+time (or region of space).  Furthermore, the probability of an event occuring
+in non-overlapping, small intervals, is independent.  The quintessential 
+physical example is radioactive decay.
+
+If we count the number of events occurig in a fixed amount of time or space,
+that count has a $\mathrm{Pois}(\lambda)$ distribution where $\lambda$
+is the expected number of events.  (We can see this by dividing our 
+interval up into lots ($n$) of small subintervals, each of which has a low
+probability $p$ of containing an event.)
+
+#### Discrete vs Continuous "time"
+
+Another way to think about the difference between Poisson and binomial models
+is that binomial models use discrete "time" (a first moment, a second moment,
+etc. up to some last moment) and Poisson models use continuous "time" (events
+can occur anytime within the observation window).  
+
+
+### General model for count data
+
+Poisson distributions are commonly used to model count data in situations
+where there is no notion of $n$ as would be needed in a binomial distribution,
+and perhaps no natural maximum count.  There is only one Poisson distribution
+for each expected count ($\lambda$), so the Poisson distributions place some 
+restriction on the shape, in particular, the variance must also be $\lambda$.
+
+If the variance is substantially larger or smaller than the expected value,
+we refer to this as **overdispersion** or **underdispersion** (relative to the Poisson
+model) and typically need to consider models that handle this.  (Negative binomial
+distributions are multi-level models are two options.)
+
+## Modeling counts with Poisson distributions
+
+#### Kline Data
+
+```{r, chunk10.39}
+data(Kline)
+```
+
+```{r, chunk10.40}
+Kline <-
+  Kline %>% 
+  mutate(
+    log_pop = log(population),
+    contact_high = ifelse(contact == "high", 1, 0)
+  )
+Kline %>% head(3)
+```
+
+### First Poisson regression model
+
+  3. We can create models with with Poisson counts just like we did with binomial
+  counts, but we make **two changes**.  What are they and why do we make them?
+
+  4. Explain the likely intuition of sociologists that led to the following 
+  model.
+
+```{r, chunk10.41}
+m10.10 <- 
+  map(
+    alist(
+      total_tools ~ dpois(lambda),
+      log(lambda) <- a + bp * log_pop +
+        bc * contact_high + bpc * contact_high * log_pop,
+      a ~ dnorm(0, 100),
+      c(bp, bc, bpc) ~ dnorm(0, 1)
+    ), data = Kline)
+```
+
+\newpage
+
+ 5. According to this model, how much difference does contact make when
+ the log of population is 8?
+ 
+```{r, chunk10.42}
+precis(m10.10, corr = TRUE)
+plot(precis(m10.10))
+```
+
+
+ 6. The answer to you question above isn't really a number, its a (posterior)
+ distribution.  How would you create this plot and what does it tell us?
+ 
+```{r, chunk10.43, include = FALSE}
+m10.10_post <- 
+  extract.samples(m10.10) %>%
+  mutate(
+    log_pop = 8,
+    lambda_high = exp(a + bc + (bp + bpc) * log_pop),
+    lambda_low =  exp(a + bp * log_pop)
+  )
+```
+
+
+```{r, chunk10.44, echo = FALSE}
+gf_dens(~(lambda_high - lambda_low), data = m10.10_post) %>%
+  gf_labs(title = "posterior density when log_pop = 8") 
+#  gf_facet_grid(~log_pop)
+# prop(~(lambda_high > lambda_low), data = m10.10_post)
+```
+
+### More Models
+
+```{r, chunk10.45}
+# no interaction
+m10.11 <- map(
+  alist(
+    total_tools ~ dpois(lambda),
+    log(lambda) <- a + bp * log_pop + bc * contact_high,
+    a ~ dnorm(0, 100),
+    c(bp, bc) ~ dnorm(0, 1)
+  ), data = Kline )
+```
+
+
+```{r, chunk10.46}
+# no contact rate
+m10.12 <- 
+  map(
+    alist(
+      total_tools ~ dpois(lambda),
+      log(lambda) <- a + bp * log_pop,
+      a ~ dnorm(0, 100),
+      bp ~ dnorm(0, 1)
+    ), data = Kline)
+
+# no log-population
+m10.13 <- 
+  map(
+    alist(
+      total_tools ~ dpois(lambda),
+      log(lambda) <- a + bc * contact_high,
+      a ~ dnorm(0, 100),
+      bc ~ dnorm(0, 1)
+    ), data = Kline)
+```
+
+
+```{r, chunk10.47}
+# intercept only
+m10.14 <- 
+  map(
+    alist(
+      total_tools ~ dpois(lambda),
+      log(lambda) <- a,
+      a ~ dnorm(0, 100)), 
+    data = Kline)
+```
+
+```{r}
+# compare all using WAIC; adding n=1e4 for more stable WAIC estimates
+(islands.compare <-
+  compare(m10.10, m10.11, m10.12, m10.13, m10.14, n = 1e4, refresh = 0))
+plot(islands.compare)
+```
+
+ 7. What does each symbol on the plot above represent?
+
+ 8. Which models would you include in an ensemble model?  Why?
+ 
+ 9. How would you create this plot for the ensemble model? (And what are the advantages/disadvantages to the faceted version?)
+
+```{r, chunk10.48, include = FALSE}
+Kline.pred <-
+  expand.grid(
+    log_pop = seq(from = 6, to = 13, by = 0.25),
+    contact_high = 0L:1L
+  ) %>%
+  mutate( contact = ifelse(contact_high == 1, "high", "low") )
+
+Kline.ens <- ensemble(m10.10, m10.11, m10.12, data = Kline.pred, refresh = 0) 
+Kline.pred <- 
+  Kline.pred %>%
+  mutate(
+    lambda.med = apply(Kline.ens$link, 2, median),
+    lambda.link.lo = apply(Kline.ens$link, 2, PI)[1,],
+    lambda.link.hi = apply(Kline.ens$link, 2, PI)[2,])
+```
+
+```{r, echo = FALSE}
+gf_point(total_tools ~ log_pop + shape:contact + color:contact, data = Kline) %>%
+  gf_ribbon(lambda.link.lo + lambda.link.hi ~ log_pop + fill:contact, data = Kline.pred) %>%
+  gf_line(lambda.med ~ log_pop + color:contact, data = Kline.pred) %>% 
+  gf_refine(scale_shape_manual(values = c(16, 1)))
+gf_point(total_tools ~ log_pop + shape:contact + color:contact, data = Kline) %>%
+  gf_ribbon(lambda.link.lo + lambda.link.hi ~ log_pop + fill:contact, data = Kline.pred) %>%
+  gf_line(lambda.med ~ log_pop + color:contact, data = Kline.pred) %>% 
+  gf_refine(scale_shape_manual(values = c(16, 1))) %>%
+  gf_facet_grid( ~ contact) %>% 
+  gf_refine(guides(color = FALSE, fill = FALSE, shape = FALSE))
+```
+
+ 10. Bonus question: Suppose `ensemble()` didn't exist.  How could you 
+ create posterior samples from the ensemble model?
+
+#### MAP vs Stan
+
+ 11. Any issues with our use of MAP here?
+ 
+```{r, chunk10.49, results = "hide", message = FALSE}
+m10.10stan <-
+  map2stan(m10.10,
+    iter = 3000, warmup = 1000, chains = 4, refresh = 0)
+```
+
+```{r, fig.height = 2.6, fig.width = 5}
+precis(m10.10stan)
+pairs(m10.10stan)
+```
+
+
+### Centering predictors
+
+ 12. What are the advantages of centering our predictors?
+ 
+```{r, chunk10.50, include = FALSE}
+Kline <-
+  Kline %>%
+  mutate(log_pop_c = log_pop - mean(log_pop))
+
+m10.10stan.c <- 
+  map2stan(
+    alist(
+      total_tools ~ dpois(lambda),
+      log(lambda) <- a + bp * log_pop_c + bc * contact_high +
+        bcp * log_pop_c * contact_high,
+      a ~ dnorm(0, 10),
+      c(bp, bc, bcp) ~ dnorm(0, 1)
+    ),
+    data = Kline, iter = 3000, warmup = 1000, chains = 4, refresh = 0)
+```
+
+```{r, ref.label="chunk10.50", eval = FALSE, cache = FALSE}
+```
+
+```{r, fig.height = 2.6, fig.width = 5}
+precis(m10.10stan)
+precis(m10.10stan.c)
+pairs(m10.10stan.c)
+```
+
+ 13. Which parameter estimates change? Why?
+ 
+ 14. How do the predictions when `log_pop = 8` compare in the centered vs.
+ uncentered models?  
+ 
+```{r}
+mean(~log_pop, data = Kline)
+8 - mean(~log_pop, data = Kline)
+```
+\newpage
+
+## Offsets: Handling differing observation windows
+
+If we observe a Poisson process for a longer time, we expect to count more 
+events.  If some of our data is recorded daily and some weekly, we would expect
+counts to be 7 times as high when recorded weekly if the underlying rate is the same
+in both situations.  
+
+If we let $\lambda$ be the base rate (per unit time/space) and let $k$ be size
+of our observation window (1 day or 7 days in the example above), then we can
+model our counts as 
+
+$$
+\mathrm{count} \sim \mathrm{Pois}(k \lambda)
+$$
+where $k$ is another part of the data (not a parameter).
+
+ 15. What is the expected count from a $\mathrm{Pois}(k \lambda)$-distribution?
+ 
+ 16. What is the log of the expected count?
+ 
+ 17. How can we bring this into our Poisson regression model?
+
+
+### Campus Crime 
+
+```{r, message = FALSE}
+CampusCrime <- read.file("http://www.calvin.edu/~rpruim/data/CampusCrime.csv") %>%
+  select(region, type, enrollment, violent_crimes) %>%
+  mutate( region_id = coerce_index(region), 
+          type_id   = coerce_index(type) )
+```
+
+```{r}
+head(CampusCrime, 3)
+```
+
+
+ 18. Why is there no intercept in this model?  
+ 
+ 20. Why does it make sense to have lesss informative priors on the `b_region`
+ parameters than on the `b_type` parameter?
+ 
+ 
+```{r, crime-map}
+crime.map <- map(
+    alist(
+      violent_crimes ~ dpois(lambda),
+      log(lambda) ~ log(enrollment) +  b_type * type_id + b_region[region_id],
+      b_type ~ dnorm(0, 1),
+      b_region[region_id] ~ dnorm(0, 5)
+    ), data = CampusCrime)
+```
+
+ 19. What does this model say about campus crime?
+ 
+```{r, dependson = "crime-map"}
+precis(crime.map, depth = 2) 
+```
+
+```{r}
+CampusCrime %>% 
+  filter(type == "C") %>%
+  group_by(type, type_id, region, region_id) %>% summarise(n = n())
+```
+
+ 20. Was MAP OK? Should we use Stan?
+ 
+```{r, crime-stan, dependson = "crime-map", include = FALSE}
+crime.stan <- map2stan(crime.map, refresh = 0) 
+```
+
+```{r, ref.label = "crime-stan", eval = FALSE}
+```
+
+```{r, dependon = "crime-stan", fig.width = 5, fig.height = 4.5}
+precis(crime.stan, depth = 2)
+pairs(crime.stan)
+```
