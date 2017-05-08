@@ -129,12 +129,17 @@ Additional assignments will be filled in over time.
   PS & Due & Source & Problems \\
   \hline\hline
   \endhead
-16 & Fri 5/5 &
+16 & Mon 5/8 &
 Rethinking 14 &
 \mand[divorce]{14M3}
-\\ \hline
+\\
 & & Additional Problems &
 \mand[plots]{1--2}
+\\ \hline
+17 & Thu/Fri 5/11 &
+Rethinking 10 &
+\mand[logit-poisson?]{10M5}
+\mand[salamanders]{10H4}
 \\ \hline
 \end{longtable}
 \end{center}
