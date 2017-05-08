@@ -1,0 +1,114 @@
+---
+title: "Test 2 Notes"
+author: "Stat 341 — Spring 2017"
+date: "May 6, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#### Interpreting parameters
+
+Note: In linear models, the parameters that get multiplied by variables are often
+called **coefficients**. They behave structurally much like coefficients in polynomials.
+
+There are several ways to get a handle on what parameters are doing.  Here are some suggestions:
+  
+  * Ask yourself how the model changes as you "move the knob" on one parameter.
+  * Ask yourself how the model depends on each predictor.  (Factoring the model equation can
+  be useful here.)
+  * For GLMs, be sure to consider the role of the link function.
+  * Try some (well chosen) test cases.  In the genetics example, there only are 6 possible 
+  inputs (all combinations of M/F and GG/GT/TT), so it is easy to write down the means for
+  all 6 and see what they look like.
+  
+  
+#### How are `m1` and `m2` different (in class)?
+
+There are two major differences.  I was happy if you detected either one of these:
+
+ 1. `m1` assumes that the incidence rate for T2D is 50\% for males with genotype GG.  That's 
+ a strange thing to build into the model.
+ 
+ 2. `m1` assumes that the difference (on log odds scale) is the same when moving from GG to GT 
+ or when moving from GT to TT.  This may or may not make sense biologically.  `m2` allows these
+ differences to be fit independently.  This would even allow for the possibility that GT is 
+ the best or worst genotype.  (In `m1`, GT will always be modeled as intermediate.)
+
+#### Using map()
+
+Remember that `map()` fits models by assuming that the posterior is multivariate normal
+and approximating the means, and variance-covariance structure of the posterior distribution.
+One way to see whether this is reasonable is to look at the posterior
+distributions provided by Stan.  If they don't look approximately normal, that
+would be an indication that `map()` would have been a bad choice.  
+
+For linear models, `map()` often works fine.  It struggles for logistic regression when the 
+probabilities of interest are near 0 or 1 and does better when they are nearer to 0.5.  In
+this example, the probabilities are quite close to 0.5 and the posterior distributions look
+reasonably good, so `map()` would have been OK.  But in general, one should be cautious 
+about using `map()` with logistic regression.
+
+#### Flexible models
+
+Note that just because a model is more flexible doesn't necessarily mean it will fit better than a less flexible 
+model (flexibility measured by effective number of parameters, for example).  But `m2` is not just more flexible
+but `m1` can be obtained by setting parameters in `m2` to particular values (set the extra paramters to 0).  So in
+this case, `m2` must fit at least as well as `m1`, and we know (even before fitting the model) that it will 
+fit the current data set better than `m1`.
+
+#### So many standard deviations
+
+
+Several of you made incorrect statements about what either $\sigma$ (`sigma`) 
+or the "standard error" column of `precis` output means.
+
+ * `sigma` is a parameter in the model.  We have typically used this to measure the variability in
+ the response about it model-fitted mean value.  When `\sigma` is large, that means there is a good deal
+ of variability in the response values among observations with the same predictor values.
+ 
+ * `StdDev` is the standard deviation of the posterior distribution of a parameter.  This is also called 
+ the **standard error** of the parameter.  When the standard error is big, that means their is a lot 
+ of variability in the posterior distribution for that parameter.
+
+ * Neither of these should be confused with standard deviations associated with priors.
+ Those do not tell you "what the model thinks", and certainly are't related to the data in
+ any way.  They give some indication about how much is known about the paramters before 
+ fitting to data.  They can also be used (as in `m6` and `m7`) to control how the model
+ selects between equivalent descriptions of the same model.  (Alternatively, we can 
+ re-express the models to avoid this ambiguity.)
+
+#### Plotting discrete data
+
+When plotting discrete data, there is always an issue about whether to "connect the dots".  There are no
+values "in between", and sometimes plotting there just makes things look "jumpy".  Other times, plotting "in between" can help show a pattern more clearly.  Judgment is required.
+
+#### Interaction doesn't mean "two variables in the model"
+
+Interaction means that the effect of one one variable depends on the value of
+the other variable.  
+
+ * On Problem 8 of the in class portion, some of you didn't clearly indicate that you
+understand what "interaction" means.
+
+ * None of the pallets models include an interaction effect. Models `m6` and `m7`
+are **additive models** -- the affects of day and employee add.
+
+
+#### Choosing between m6 and m7
+
+`m6` and `m7` are essentially equivalent models.  Selecting between them based
+on WAIC is mostly making a selection based on noise.  If you are looking for a 
+another reason, you might choose based on whether the parameters are easier to
+interpret for your purposes.  Some of you liked the employee effect to be near 0
+so you easily see how much better/worse the different employees are.  Some of you
+liked having the day effect near 0, but note that in this case, it isn't entirely
+clear how to interpret the employee parameters.  It isn't really their "average"
+productivity.  I guess it is some sort of "standardized" productivity.
+
+
+
+
+ 
