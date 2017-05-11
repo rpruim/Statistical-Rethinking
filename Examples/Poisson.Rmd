@@ -367,7 +367,7 @@ head(CampusCrime, 3)
 
  18. Why is there no intercept in this model?  
  
- 20. Why does it make sense to have lesss informative priors on the `b_region`
+ 19. Why does it make sense to have lesss informative priors on the `b_region`
  parameters than on the `b_type` parameter?
  
  
