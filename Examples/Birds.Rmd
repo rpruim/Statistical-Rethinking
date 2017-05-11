@@ -1,0 +1,169 @@
+---
+title: "Birds"
+author: "Stat 241 -- Spring 2017"
+date: ''
+output:
+  pdf_document:
+    fig_height: 2.5
+    fig_width: 5.5
+  html_document:
+    fig_height: 2.5
+    fig_width: 5.5
+  word_document:
+    fig_height: 2.5
+    fig_width: 3.5
+---
+
+```{r, setup, include=FALSE}
+# Load packages here 
+require(rstan)
+require(rethinking)
+require(mosaic)   
+require(ggformula)
+
+# Some customization.  You can alter or delete as desired (if you know what you are doing).
+trellis.par.set(theme=theme.mosaic()) # change default color scheme for lattice
+knitr::opts_chunk$set(
+  cache = TRUE,
+  tidy = FALSE,     # display code as typed
+  size = "small",   # slightly smaller font for code
+  fig.show = "hold")   # all plots at end of chunk
+theme_set(theme_bw())
+```
+
+#### The Data 
+
+```{r}
+data(birdextinct, package = "LearnBayes")
+head(birdextinct, 3)
+```
+
+Measurements on breedings pairs of landbird species were collected from 16 islands about Britain over several decades.
+
+ * `species` -- name of bird species
+ * `time` -- average time of extinction on the islands
+ * `nesting` -- average number of nesting pairs
+ * `size` -- size of the species: 1 or 0 if large or small
+ * `status` -- status of the species: 1 or 0 if resident or migrant
+
+Let's do a bit of renaming to make it easier to remember the coding.
+```{r}
+Birds <- birdextinct %>%
+  mutate(large = size, resident = status, 
+         size = ifelse(large, "large", "small"),
+         status = ifelse(resident, "resident", "migratory"),
+         combo = paste(size, status),
+         logtime = log(time))  
+```
+
+#### A model
+
+```{r, mBirds, include = FALSE}
+mBirds <- 
+  map2stan(
+    alist(
+      logtime ~ dnorm( mu , sigma ),
+      mu <- Intercept + b_nesting * nesting + 
+            b_large * large + b_resident * resident,
+      Intercept ~ dnorm(0,10),
+      b_nesting ~ dnorm(0,10),
+      b_large ~ dnorm(0,10),
+      b_resident ~ dnorm(0,10),
+      sigma ~ dcauchy(0,2)
+    ),
+    data = Birds)
+```
+
+```{r, ref.label = "mBirds", eval = FALSE, cache = FALSE}
+```
+
+```{r}
+precis(mBirds)
+```
+
+#### Model Predictions
+
+  1. What does this model predict for the mean log extinction time for a species 
+that currently has 4 nesting pairs? That depends, of course, on the covariates 
+(four combinations of size and status). Compute these four estimates several 
+ways:
+
+    * "by hand" from the output above
+    * using `link()`
+    * using `extract.samples()` but not `link()`
+
+  2. How is what `link()` does different from what you did "by hand"? Does it
+  matter? Why or why not? Is the answer the same for all types of models?
+ 
+  3. How is `sim()` different from `link()`?  Explain how to obtain
+  the output from `sim()` using the output from `extract.samples()`.
+  
+
+```{r, include = FALSE}
+Birds_pred <-
+  expand.grid( large = 0:1, resident = 0:1 ) %>% mutate(nesting = 4)
+Birds_link <- link(mBirds, data = Birds_pred)
+Birds_sim  <- sim(mBirds, data = Birds_pred)
+Birds_pred %>%
+  mutate(
+    link.mean = apply(Birds_link, 2, mean),
+    link.lo = apply(Birds_link, 2, PI)[1, ],
+    link.hi = apply(Birds_link, 2, PI)[2, ],
+    sim.mean = apply(Birds_sim, 2, mean),
+    sim.lo = apply(Birds_sim, 2, PI)[1, ],
+    lsimhi = apply(Birds_sim, 2, PI)[2, ])
+```
+
+  
+
+```{r, include = FALSE}
+Birds_link <- link(mBirds)
+Birds_sim  <- sim(mBirds)
+Birds2 <-
+  Birds %>% 
+  mutate(
+    link.mean = apply(Birds_link, 2, mean),
+    link.lo = apply(Birds_link, 2, PI)[1, ],
+    link.hi = apply(Birds_link, 2, PI)[2, ],
+    sim.mean = apply(Birds_sim, 2, mean),
+    sim.lo = apply(Birds_sim, 2, PI)[1, ],
+    sim.hi = apply(Birds_sim, 2, PI)[2, ])
+```
+
+  4. How do you create this plot and what does it tell us about the model?
+
+  
+```{r, echo = FALSE}
+gf_point(logtime ~ nesting, data = Birds2, alpha = 0.5, shape = 1) %>%
+  gf_line( link.mean ~ nesting, data = Birds2, alpha = 0.5, color = "red") %>%
+  gf_linerange( link.lo + link.hi ~ nesting, data = Birds2, size = 0.9, alpha = 0.5) %>%
+  gf_linerange( sim.lo + sim.hi ~ nesting, data = Birds2, size = 0.5, alpha = 0.5) %>%
+  gf_text(logtime ~ nesting + label:species, data = Birds2, color = "transparent") %>% 
+  gf_text(logtime ~ nesting + label:species + color:combo, 
+          data = Birds2 %>% filter(logtime < sim.lo | logtime > sim.hi),
+          size = 2) %>%
+  gf_facet_grid(status ~ size) 
+  # plotly::ggplotly()
+```
+
+  5. Do you like this plot better or worse?  Why?
+  
+```{r, echo = FALSE}
+gf_point(logtime ~ nesting + color:combo, data = Birds2, alpha = 0.5) %>%
+  gf_line( link.mean ~ nesting + color:combo + group:combo, data = Birds2, alpha = 0.5) %>%
+  gf_linerange( link.lo + link.hi ~ nesting + color:combo, 
+                data = Birds2, size = 0.9, alpha = 0.5) %>%
+  gf_linerange( sim.lo + sim.hi ~ nesting + color:combo, 
+                data = Birds2, size = 0.3, alpha = 0.5) %>%
+  gf_text(logtime ~ nesting + label:species + color:combo, 
+          data = Birds2 %>% filter(logtime < sim.lo | logtime > sim.hi),
+          size = 2) 
+  # plotly::ggplotly()
+```
+ 
+  6. What would it mean to add **interaction** to this model?  How 
+  might the plots above change if we used a model with interaction?
+  
+  7. (Describe how to) fit this model using the grid method.
+  
+  8. Why did we abandon the grid method in favor of `map()` and then `map2stan()`?
