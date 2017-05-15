@@ -1,0 +1,131 @@
+---
+title: "Problem Set Notes (PS 14-17)"
+author: "Stat 241 -- Spring 2017"
+date: ""
+output:
+  html_document:
+    fig_height: 2.5
+    fig_width: 3.5
+  pdf_document:
+    fig_height: 2.5
+    fig_width: 3.5
+  word_document:
+    fig_height: 2.5
+    fig_width: 3.5
+---
+
+```{r, setup, include=FALSE}
+# Load packages here 
+require(rstan)
+require(rethinking)
+require(mosaic)   
+require(ggformula)
+
+# Some customization.  You can alter or delete as desired (if you know what you are doing).
+trellis.par.set(theme=theme.mosaic()) # change default color scheme for lattice
+knitr::opts_chunk$set(
+  tidy=FALSE,     # display code as typed
+  size="small",   # slightly smaller font for code
+  fig.show = "hold")   # all plots at end of chunk
+theme_set(theme_minimal())
+```
+
+## PS 14
+
+  1. **Avoid ambiguity:**  When you use words like "mean" be sure to say what the mean if
+  *of*.  We have lots of means in these problems -- mean of the response
+  variable, mean of each predictor variable, means of the priors, mean of the
+  posteriors.  
+  
+  2. **Shrinkage:** Shrinkage nudges estimated parameter values in a particular
+  direction.  In a simple model, it may be nudged toward the mean of a prior (by
+  concentrating the prior near there).  In a multi-level model, you might nudged
+  parameters associated with groups of observations toward a pooled estimate 
+  computed using all of the observations.  In either case, shrinkage tends to 
+  be more pronounced when there is less data.
+  
+  3. **Indexing in models:**  For many of you, I was either uncertain you
+  understood the indexing in your multi-levle models or you made it clear that 
+  you did not understand.  You should always know how many of each "parameter" you
+  have:  How many $\alpha_{\mathrm{Group}}$'s are there?  (one per group).
+  How many $\sigma_\alpha$'s? (just one).
+  
+## PS 15
+
+### 12M1
+
+Some of you missed the point of the exercise.  What the author wanted was for you
+to look at `sigma` across the models and see how it changes.  
+What you should notice is that it is smaller for
+models that include predation as a predictor.  This says that this variable helps 
+explain why some tanks have higher survival rates than others.  (By way of 
+comparison, size does very little to help -- at least not without some
+additional predictors in the model.)  
+
+One way to express this is that `sigma` is measuring *unexplained variation* in
+survival rates.  In principle, if we include in the model everything that determined
+survival rate, then `sigma` would be 0.  Of course, that doesn't happen in practice.
+But if we include predictors that help explain the variation in reponse, that reduces
+the amount of unexplained variation.
+
+Another way to approach this would be to look the distribution of predicted
+tank survival rates, but to do this you need to take into account the different 
+types of models and the fact that the parameters mean different things in
+different models.  (`link()` would be a good way to go.)  You should see that 
+when `sigma` is small, the estimates for individual tanks differ more from each
+other.
+
+PS. We don't need to see all of the `depth=2` rows of `precis()` output here.  All we 
+really need is the `sigma` row of the output from `coeftab()`.
+
+### 12M2
+
+Adding predation decreases WAIC more that adding size.  Looking at the 
+posterior distributions, we see that the posterior distributions for the 
+coefficient on predaction are "farther from zero" (less of the distribution 
+is on the "other side of zero") than is the case for the coefficients on 
+size.
+
+## PS 16
+
+### 14M3
+
+Biggest differences when moving from model 1 to model 2:
+
+  * The second model converges much more slowly (see `n_eff` and `Rhat`), so you
+  may need to do increase `iter` and perhaps do some other tuning to get good
+  results from the second model.  I didn't grade this problem because most of 
+  you had trouble getting the model to converge well -- which is a pretty 
+  important difference!
+  
+If you do get things to converge (or interpret the model even though you
+were nervous about how it was behaving), you will see that
+  
+  * `bR` changes -- the two models pool information from states differently. 
+  Because the standard errors associated with the observed data have increased
+  in the second model, the bigger states (which had the small standard errors
+  in model 1) have less influence over our estimates for the smaller states (and 
+  can be more influenced by them).
+  
+  * `sigma` decreases -- Basically, we have moved uncertainty around.  If we are
+  less sure of the **observed divorce rates**, then we have more flexibility in 
+  how we estimate the  **estimated divorce rates**, so we can fit more closely
+  to the **estimated data**, reducing `sigma`.  (Recall that `sigma` is
+  associated with fitting the **estimated** divorce rate to the observed
+  marriage rate and median age at marriage.)
+ 
+Side note:  There is no reason to print that out of `precis()` with `depth = 2` if it 
+takes up pages of space and you don't even talk about the second level of the output.
+(When there are lots of parameters at this level, there are usually better ways to 
+talks about what is going on than to list multiple pages of output without comment.)
+
+### Plots
+
+The plots should have been "self-correcting", since you could see what you were after.
+I did a quick look, but didn't inspect your plots particularly carefully.
+
+If you haven't already done so, you can see how I created the plots in
+the [Chapter 14 code](https://rawgit.com/rpruim/Statistical-Rethinking/master/Book-Code/Chapter14-updated.html).
+
+## PS 17
+
