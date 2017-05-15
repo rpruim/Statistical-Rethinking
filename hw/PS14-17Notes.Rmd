@@ -32,17 +32,19 @@ theme_set(theme_minimal())
 
 ## PS 14
 
-  1. **Avoid ambiguity:**  When you use words like "mean" be sure to say what the mean if
-  *of*.  We have lots of means in these problems -- mean of the response
-  variable, mean of each predictor variable, means of the priors, mean of the
-  posteriors.  
+  1. **Avoid ambiguity:**  When you use words like "mean" be sure to say what
+  the mean if *of*.  We have lots of means in these problems -- mean of the
+  response variable, mean of each predictor variable, means of the priors, mean
+  of the posteriors. Some of your answers made it unclear that you knew what
+  mean you were talking about.  (And some of your answers made it pretty clear
+  you were talking about the wrong mean.)
   
   2. **Shrinkage:** Shrinkage nudges estimated parameter values in a particular
   direction.  In a simple model, it may be nudged toward the mean of a prior (by
   concentrating the prior near there).  In a multi-level model, you might nudged
   parameters associated with groups of observations toward a pooled estimate 
   computed using all of the observations.  In either case, shrinkage tends to 
-  be more pronounced when there is less data.
+  be more pronounced when there is less data (and also when the priors are narrower).
   
   3. **Indexing in models:**  For many of you, I was either uncertain you
   understood the indexing in your multi-levle models or you made it clear that 
