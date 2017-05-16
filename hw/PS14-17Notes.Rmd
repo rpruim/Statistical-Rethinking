@@ -82,7 +82,7 @@ really need is the `sigma` row of the output from `coeftab()`.
 
 ### 12M2
 
-Adding predation decreases WAIC more that adding size.  Looking at the 
+Adding predation decreases WAIC more than adding size.  Looking at the 
 posterior distributions, we see that the posterior distributions for the 
 coefficient on predaction are "farther from zero" (less of the distribution 
 is on the "other side of zero") than is the case for the coefficients on 
@@ -135,14 +135,15 @@ the [Chapter 14 code](https://rawgit.com/rpruim/Statistical-Rethinking/master/Bo
 
 Most of you noticed that using a `logit()` link would force $\lambda$ to be
 between 0 and 1.  Note: This does not require that all the observed counts be
-between 0 and 1 and does not make $\labmda$ magically a probability.  For example,
-if $\lambda = 1/3$, there is a greater than 4% chance of seeing
-a count of 2 or greater.
+between 0 and 1 and does not make $\lambda$ magically a probability.  For example,
+if $\lambda = 1/2$, there is an approximately `r round(100 * (1-ppois(1, 1/2)), 1)`% 
+chance of seeing a count of 2 or greater.
 
 ```{r}
-dpois(0:3, lambda = 1/3)
-plotDist("pois", lambda = 1/3)
+dpois(0:3, lambda = 1/2)
+plotDist("pois", lambda = 1/2, xlim = c(-0.2, 3.2))
 ```
+
 ### 10H4
 
 1. When comparing data to fit (retrodicting), it is usually more useful to use 
@@ -165,10 +166,15 @@ they have more cover.  (That seems more likely than the reverse -- that
 salamanders like old forests and they just happen to have more cover.  Also the
 fit is better using percent cover alone than it is using age alone.)
 
-4. When creating priors, don't forget about **units**.  In this case, forest age
-and percent cover are rather large values and the number of salamanders is
-pretty low, so we should expect our coefficients to have pretty small values.
-(This will be especially pronounced for the interaction term where the two
-values get multiplited together.) Alternatively, we might like to standardize
-the variables to give them more moderate size.  
-**Your priors should reflect what you know about the approximate magnitude of the coefficients.**
+  4. When creating priors, don't forget about **units**.  In this case, forest age
+  and percent cover are rather large values and the number of salamanders is
+  pretty low, so we should expect our coefficients to have pretty small values.
+  (This will be especially pronounced for the interaction term where the two
+  values get multiplited together.) Alternatively, we might like to standardize
+  the variables to give them more moderate size.
+  **Your priors should reflect what you know about the approximate magnitude of the coefficients.**
+
+    Also note that you can increase the digits used in the `precis()` display.  This
+    can be necessary if the coefficients are small values.  (If you see value and
+    standard error both listed as 0, you probably want more digits.)
+  
