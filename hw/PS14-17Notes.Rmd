@@ -131,3 +131,44 @@ the [Chapter 14 code](https://rawgit.com/rpruim/Statistical-Rethinking/master/Bo
 
 ## PS 17
 
+### 10M5
+
+Most of you noticed that using a `logit()` link would force $\lambda$ to be
+between 0 and 1.  Note: This does not require that all the observed counts be
+between 0 and 1 and does not make $\labmda$ magically a probability.  For example,
+if $\lambda = 1/3$, there is a greater than 4% chance of seeing
+a count of 2 or greater.
+
+```{r}
+dpois(0:3, lambda = 1/3)
+plotDist("pois", lambda = 1/3)
+```
+### 10H4
+
+1. When comparing data to fit (retrodicting), it is usually more useful to use 
+`sim()` than to use `link()`.  Afterall, `sim()` is there to simulate data 
+according to the model.  (But you should probably still use `link()` to get the 
+mean -- you will be averaging over less noisy data, so you will get a smoother 
+curve with less sampling.)
+
+2. In this particular case, the results of `sim()` can be a bit "jumpy" because
+the Poisson distribution is discrete, so things will jump to integer values, and
+if you counterfactual data uses too fine a grid, you will see some "back and
+forth" noise between consecutive integers as you transition from one to the
+next.
+
+3. When adding in forest age, things don't improve much (although using forest
+age without percent cover shows that forest age is associated with the amount of
+salamanders). Most likely, older forests have more cover.  If salamanders like 
+cover, then they might like older forests not because they are old but because
+they have more cover.  (That seems more likely than the reverse -- that
+salamanders like old forests and they just happen to have more cover.  Also the
+fit is better using percent cover alone than it is using age alone.)
+
+4. When creating priors, don't forget about **units**.  In this case, forest age
+and percent cover are rather large values and the number of salamanders is
+pretty low, so we should expect our coefficients to have pretty small values.
+(This will be especially pronounced for the interaction term where the two
+values get multiplited together.) Alternatively, we might like to standardize
+the variables to give them more moderate size.  
+**Your priors should reflect what you know about the approximate magnitude of the coefficients.**
