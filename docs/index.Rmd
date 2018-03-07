@@ -11,9 +11,21 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Code from the text (redone)
 
-I redid the examples from the book using `ggformula` for graphics and using a 
-different coding style from that of the author.  I also use a slightly modified version
-of the rethinking package (available via github).
+I redid the examples from the book using a 
+different coding style from that of the author.  
+
+ * I prefer that related data be in containers (lists, data frames, etc.) rather
+ than in "loose vectors".
+ * I prefer not to use the same names over and over for different things.
+ * I prefer `ggformula` (a formula interface to `ggplot2`) for graphics.  
+ 
+    *caveat emptor*:  I was creating `ggformula` as I taught this course, 
+ so early examples don't use `ggformula` and there have likely been a few 
+ changes to `ggformula` since this code was produced.
+
+I also use a slightly modified version
+of the rethinking package 
+(available via [https://github.com/rpruim/rethinking](github)).
 
  * Chapter 2: [[HTML]](Book-Code/Chapter02-updated.html) [[Rmd]](Book-Code/Chapter02.Rmd)
  * Chapter 3: [[HTML]](Book-Code/Chapter03-updated.html) [[Rmd]](Book-Code/Chapter03.Rmd)
