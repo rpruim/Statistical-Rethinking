@@ -1,0 +1,31 @@
+---
+title: "Statistical Rethinking Resources"
+author: "R Pruim"
+date: "3/7/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Code from the text (redone)
+
+I redid the examples from the book using `ggformula` for graphics and using a 
+different coding style from that of the author.  I also use a slightly modified version
+of the rethinking package (available via github).
+
+ * Chapter 2: [[HTML]](Book-Code/Chapter02-updated.html) [[Rmd]](Book-Code/Chapter02.Rmd)
+ * Chapter 3: [[HTML]](Book-Code/Chapter03-updated.html) [[Rmd]](Book-Code/Chapter03.Rmd)
+ * Chapter 4: [[HTML]](Book-Code/Chapter04-updated.html) [[Rmd]](Book-Code/Chapter04.Rmd)
+ * Chapter 5: [[HTML]](Book-Code/Chapter05-updated.html) [[Rmd]](Book-Code/Chapter05.Rmd)
+ * Chapter 6: [[HTML]](Book-Code/Chapter06-updated.html) [[Rmd]](Book-Code/Chapter06.Rmd)
+ * Chapter 7: [[HTML]](Book-Code/Chapter07-updated.html) [[Rmd]](Book-Code/Chapter07.Rmd)
+ * Chapter 8: [[HTML]](Book-Code/Chapter08-updated.html) [[Rmd]](Book-Code/Chapter08.Rmd)
+ * Chapter 9: [[HTML]](Book-Code/Chapter09-updated.html) [[Rmd]](Book-Code/Chapter09.Rmd)
+ * Chapter 10: [[HTML]](Book-Code/Chapter10-updated.html) [[Rmd]](Book-Code/Chapter10.Rmd)
+ * Chapter 12: [[HTML]](Book-Code/Chapter12-updated.html) [[Rmd]](Book-Code/Chapter12.Rmd)
+ * Chapter 14: [[HTML]](Book-Code/Chapter14-updated.html) [[Rmd]](Book-Code/Chapter14.Rmd)
+
+
+
