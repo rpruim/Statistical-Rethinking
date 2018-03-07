@@ -1,0 +1,309 @@
+---
+title: "Alternative Model Formulations"
+author: "Stat 341 -- Spring 2017"
+date: ''
+output:
+  pdf_document:
+    fig_height: 2.5
+    fig_width: 3.5
+  html_document:
+    fig_height: 2.5
+    fig_width: 3.5
+  word_document:
+    fig_height: 2.5
+    fig_width: 3.5
+---
+
+```{r, setup, include=FALSE}
+# Load packages here 
+require(rstan)
+require(rethinking)
+require(mosaic)   
+require(ggformula)
+
+# Some customization.  You can alter or delete as desired (if you know what you are doing).
+trellis.par.set(theme=theme.mosaic()) # change default color scheme for lattice
+knitr::opts_chunk$set(
+  cache = TRUE,
+  tidyi = FALSE,     # display code as typed
+  size = "small",   # slightly smaller font for code
+  fig.show = "hold")   # all plots at end of chunk
+theme_set(theme_minimal())
+```
+
+
+### Campus Crime 
+
+```{r, message = FALSE}
+CampusCrime <- read.file("http://www.calvin.edu/~rpruim/data/CampusCrime.csv") %>%
+  select(region, type, enrollment, violent_crimes) %>%
+  mutate( region_id = coerce_index(region), 
+          type_id   = coerce_index(type) )
+```
+
+```{r}
+head(CampusCrime, 3)
+```
+
+
+1. How are these models different and what do they say about crime?
+ 
+```{r, crime-stan1, cache = TRUE, include = FALSE}
+crime.stan1 <- map2stan(
+  alist(
+    violent_crimes ~ dpois(lambda),
+    log(lambda) ~ log(enrollment) +  b_type * type_id + b_region[region_id],
+    b_type ~ dnorm(0, 1),
+    b_region[region_id] ~ dnorm(0, 5)
+  ), data = CampusCrime)
+```
+```{r, ref.label = "crime-stan1", cache = FALSE, eval = FALSE}
+```
+
+```{r, crime-stan2, cache = TRUE, include = FALSE}
+crime.stan2 <- map2stan(
+  alist(
+    violent_crimes ~ dpois(lambda),
+    lambda <- rate * enrollment,
+    log(rate) ~ b_type * type_id + b_region[region_id],
+    b_type ~ dnorm(0, 1),
+    b_region[region_id] ~ dnorm(0, 5)
+  ), data = CampusCrime)
+```
+
+```{r, ref.label = "crime-stan2", eval = FALSE, cache = FALSE}
+```
+ 
+```{r, dependson = "crime-stan1"}
+precis(crime.stan1, depth = 2) 
+```
+```{r, dependson = "crime-stan2"}
+precis(crime.stan2, depth = 2) 
+```
+
+```{r}
+plot(coeftab(crime.stan1, crime.stan2))
+```
+
+```{r, eval = FALSE, include = FALSE}
+CampusCrime %>%  
+  group_by(region, region_id) %>% 
+  summarise(n_colleges = sum(type == "C"), n_univ = sum(type == "U"))
+```
+
+
+## Some Chimpanzee Models
+
+```{r, chunk13.22}
+data(chimpanzees)
+Chimps <- chimpanzees %>%
+  mutate(
+    recipient = NULL,
+    block_id = block    # block is a keyword in Stan
+  )
+```
+
+This model reports many "diverent transitions".
+
+```{r m13.6, include=FALSE}
+m13.6 <- map2stan(
+  alist(
+    # likeliood
+    pulled_left ~ dbinom(1, p),
+
+    # linear models
+    logit(p) <- A + BP * prosoc_left + BPC * condition * prosoc_left,
+    A <-     a +   a_actor[actor] +   a_block[block_id],
+    BP <-   bp +  bp_actor[actor] +  bp_block[block_id],
+    BPC <- bpc + bpc_actor[actor] + bpc_block[block_id],
+
+    # adaptive priors
+    c(a_actor, bp_actor, bpc_actor)[actor]    ~ dmvnorm2(0, sigma_actor, Rho_actor),
+    c(a_block, bp_block, bpc_block)[block_id] ~ dmvnorm2(0, sigma_block, Rho_block),
+
+    # fixed priors
+    c(a, bp, bpc) ~ dnorm(0, 1),
+    sigma_actor   ~ dcauchy(0, 2),
+    sigma_block   ~ dcauchy(0, 2),
+    Rho_actor     ~ dlkjcorr(4),
+    Rho_block     ~ dlkjcorr(4)
+  ),
+  data = Chimps, iter = 3000, warmup = 1000, chains = 3, cores = 3
+)
+```
+
+```{r ref.label = "m13.6", eval = FALSE}
+```
+
+This model avoids the "diverent transitions" and converges more efficiently.
+
+```{r, m13.6NC, include = FALSE}
+m13.6NC <- map2stan(
+  alist(
+    pulled_left ~ dbinom(1, p),
+    logit(p) <- A + BP * prosoc_left  + BPC * condition * prosoc_left,
+    A <-    a +    a_actor[actor] +   a_block[block_id],
+    BP <-  bp +   bp_actor[actor] +  bp_block[block_id],
+    BPC <- bpc + bpc_actor[actor] + bpc_block[block_id],
+    # adaptive NON-CENTERED priors
+    c(a_actor, bp_actor, bpc_actor)[actor]    ~ dmvnormNC(sigma_actor, Rho_actor),
+    c(a_block, bp_block, bpc_block)[block_id] ~ dmvnormNC(sigma_block, Rho_block),
+    c(a, bp, bpc) ~ dnorm(0, 1),
+    sigma_actor ~ dcauchy(0, 2),
+    sigma_block ~ dcauchy(0, 2),
+    Rho_actor ~ dlkjcorr(4),
+    Rho_block ~ dlkjcorr(4)
+  ),
+  data = Chimps, iter = 3000, warmup = 1000, chains = 3, cores = 3)
+```
+
+```{r, ref.label = "m13.6NC", eval = FALSE}
+```
+
+A coparison of effective number of samples for parameters in
+each model.
+
+```{r, chunk13.24}
+Neff <- data_frame(
+  n_eff = precis(m13.6, depth = 2)@output$n_eff,
+  model = "m13.6") %>%
+  bind_rows(
+    data_frame(
+      n_eff = precis(m13.6NC, depth = 2)@output$n_eff,
+      model = "m13.6NC") 
+  )
+
+gf_boxplot(n_eff ~ model, data = Neff)
+gf_dens( ~ n_eff + color::model, data = Neff)
+```
+
+```{r, chunk13.25}
+precis(m13.6NC,
+       depth = 2,
+       pars = c("sigma_actor", "sigma_block"))
+```
+
+```{r, chunk13.26}
+m13.6NC_link <- link(m13.6NC)
+glimpse(m13.6NC_link)
+```
+
+### What is dlkjcorr()?
+
+This allows us to sample correlation matrices.  The argument `eta`
+controls the distribution of off-diagonal elements.  A larger value 
+of `eta` implies less correlation.
+
+```{r}
+rlkjcorr(1, K = 3, eta = 4)
+rlkjcorr(1, K = 3, eta = 1/4)
+```
+
+```{r}
+DD <-
+  bind_rows(
+    data_frame(cor = rlkjcorr(1000, K=3, eta = 1) %>% as.vector, eta = "1"),
+    data_frame(cor = rlkjcorr(1000, K=3, eta = 4) %>% as.vector, eta = "4"),
+    data_frame(cor = rlkjcorr(1000, K=3, eta = 1/4) %>% as.vector, eta = "1/4")
+  )
+gf_dens( ~ cor + color::eta, data = DD %>% filter(cor < .99999), adjust = 2)
+```
+
+### What's the magic potion?
+
+The situation here is similar to the Poisson model above, but all
+the work of re-expressing the model is hidden in `dmvnormNC()` vs.
+`dmvnorm2()`.
+
+The basic idea is that the following are equivalent:
+
+  * $y \sim \mathrm{Norm}(\mu, \sigma)$
+  * $y = \mu + z \sigma$, and $z \sim \mathrm{Norm}(0,1)$
+  
+In our example, however, 
+
+ * We are dealing with multivariate distributions, so $\mu$ is a vector 
+ of means and $\sigma$ is replaced by a matrix of covariances. 
+ * We were using a model that had $\mu = 0$, so all the action is in the 
+ $\sigma$ part -- basically we are separating the covariance matrix
+ into standard deviations and a correlation matrix (and then pulling the 
+ corellation matrix out of the priors too).
+ * `dmvnormNC()` does all the work of pulling things apart and moving
+ expressions out of priors and into the linear models (like we did 
+ by hand with the Poisson model above).
+
+You can see all the ugly coding with
+
+```{r}
+m13.6NC %>% stancode()
+```
+
+Roughly, the result of this is to change the shape of the poasterior, which 
+can make sampling more or less efficient.  (Generally, sampling works poorly 
+if there are regions that are too flat or two curved, and prefers to have a 
+moderate amount of curvature.)  
+
+There is not rule to say which of two paramterizations might work best, but
+knowing that the paramterization can matter, when one paramterization fails,
+we should try another before giving up on the model.
+
+
+Here is a version that is not quite as fancy as what `dmvnormNC()` is doing,
+but shows the kinds of things that are going on.
+
+```{r, chunk13.28}
+m13.6nc1 <- map2stan(
+  alist(
+    pulled_left ~ dbinom(1, p),
+
+    # linear models
+    logit(p) <- A + BP * prosoc_left + BPC * condition * prosoc_left,
+    A <-     a +   za_actor[actor] * sigma_actor[1] +   za_block[block_id] * sigma_block[1],
+    BP <-   bp +  zbp_actor[actor] * sigma_actor[2] +  zbp_block[block_id] * sigma_block[2],
+    BPC <- bpc + zbpc_actor[actor] * sigma_actor[3] + zbpc_block[block_id] * sigma_block[3],
+
+    # adaptive priors
+    c(za_actor, zbp_actor, zbpc_actor)[actor]    ~ dmvnorm(0, Rho_actor),
+    c(za_block, zbp_block, zbpc_block)[block_id] ~ dmvnorm(0, Rho_block),
+
+    # fixed priors
+    c(a, bp, bpc) ~ dnorm(0, 1),
+    sigma_actor ~ dcauchy(0, 2),
+    sigma_block ~ dcauchy(0, 2),
+    Rho_actor ~ dlkjcorr(4),
+    Rho_block ~ dlkjcorr(4)
+  ),
+  data = Chimps,
+  start = list(sigma_actor = c(1, 1, 1), sigma_block = c(1, 1, 1)),
+  constraints = list(sigma_actor = "lower=0", sigma_block = "lower=0"),
+  types = list(Rho_actor = "corr_matrix", Rho_block = "corr_matrix"),
+  iter = 2000, warmup = 1000, chains = 1, cores = 3 )
+```
+
+
+### What do we learn from the models?
+
+The main story seems to be that there is a lot of variability
+from chimp to chimp in left vs. right preference.  The other factors
+(`condition` and `prosoc_left`) seem to make much less difference.
+
+```{r}
+m12.5 <- map2stan(
+  alist(
+    pulled_left ~ dbinom(1, p),
+    logit(p) <- a + a_actor[actor] + a_block[block_id] +
+      (bp + bpc * condition) * prosoc_left,
+    a_actor[actor] ~ dnorm(0, sigma_actor),
+    a_block[block_id] ~ dnorm(0, sigma_block),
+    c(a, bp, bpc) ~ dnorm(0, 10),
+    sigma_actor ~ dcauchy(0, 1),
+    sigma_block ~ dcauchy(0, 1)
+  ),
+  data = Chimps, 
+  warmup = 1000, iter = 3000, chains = 3, cores = 3, refresh = 0)
+```
+
+```{r, chunk13.27}
+compare(m13.6NC, m12.5)
+```
+

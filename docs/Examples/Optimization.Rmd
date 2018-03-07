@@ -1,0 +1,45 @@
+---
+title: "Optimization -- Hints at Algorithms"
+author: ""
+date: ""
+output: 
+  html_document:
+    fig_height: 3
+    fig_width: 5
+  pdf_document:
+    fig_height: 3
+    fig_width: 5
+  word_document:
+    fig_height: 3
+    fig_width: 5
+---
+
+```{r, setup, include=FALSE}
+require(mosaic)   # Load additional packages here 
+
+# Some customization.  You can alter or delete as desired (if you know what you are doing).
+trellis.par.set(theme=theme.mosaic()) # change default color scheme for lattice
+knitr::opts_chunk$set(
+  tidy=FALSE,     # display code as typed
+  size="small")   # slightly smaller font for code
+```
+
+
+```{r}
+Feval <- Vectorize(
+  function(f, x, n = 2) {
+    Df <- D(f(x) ~ x)
+    DDf <- D(Df(x) ~ x)
+    c(x = x, f = f(x), `f'` = Df(x), `f''` = DDf(x), qmax = x - Df(x)/DDf(x))[1:n]
+  }, "x")
+f <- rfun( ~ x)
+plotFun(f(x) ~ x, x.lim = c(-10,10))
+```
+
+```{r}
+x <- c(0, 0.34, .31498)
+plotFun(f(x) ~ x, xlim = c(-3, 3))
+plotPoints(f(x) ~ x, add = TRUE)
+Feval(f,x, n = 5)
+```
+

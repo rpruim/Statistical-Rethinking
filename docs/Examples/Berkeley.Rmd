@@ -1,0 +1,60 @@
+---
+title: "UCB Admissions"
+author: "Stat 341 — Spring 2017"
+date: "April, 2017"
+output: html_document
+---
+  
+```{r setup, include=FALSE}
+require(rethinking)
+require(mosaic)
+require(ggformaula)
+knitr::opts_chunk$set(
+  echo = TRUE)
+```
+
+### Graduate School Admissions
+
+#### The Data
+
+```{r, chunk10.22}
+data(UCBadmit)
+Admit <- UCBadmit %>% 
+  mutate(male = ifelse(applicant.gender == "male", 1, 0))
+head(Admit, 3)
+```
+
+#### Model 1
+
+```{r, chunk10.23a}
+model1 <- 
+  map(
+    alist(admit ~ dbinom(applications, p),
+          logit(p) <- a,
+          a ~ dnorm(0, 10)),
+    data = Admit,
+    start = list(a = 5))
+```
+
+#### Model 2
+
+```{r, chunk10.23}
+model2 <-  
+  map(
+    alist(
+      admit ~ dbinom(applications, p),
+      logit(p) <- a + bm * male,
+      a ~ dnorm(0, 10),
+      bm ~ dnorm(0, 10)
+    ),
+    data = Admit)
+precis(m10.6)
+```
+
+
+
+#### R Code 10.24
+
+```{r, chunk10.24}
+compare(m10.6, m10.7)
+```

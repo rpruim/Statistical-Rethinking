@@ -1,0 +1,63 @@
+---
+title: "Information, Entropy, Divergence, Deviance"
+author: "Stat 341"
+date: "March, 2017"
+output:
+  pdf_document: default
+  html_document:
+    fig_height: 2.5
+    fig_width: 4
+params:
+  original: no
+  updated: yes
+---
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(mosaic)
+require(rethinking)
+require(ggformula)
+require(printr)
+require(tidyr)
+
+knitr::opts_chunk$set(
+  fig.keep = "hold"
+)
+
+trellis.par.set(theme = theme.mosaic())
+theme_set(theme_minimal())
+```
+
+## Weather Prediction Accuracy
+
+Consider the predictions of two weather people over the same set of 10 days.
+Which one did a better job of predicting?  How should we measure this?
+
+ * **First Weather Person:**
+
+    ![](../Book-Code/images/weather1.png)
+
+ * **Second Weather Person:**
+
+    ![](../Book-Code/images/weather2.png)
+
+Last time we discussed some ways to compare which weather person makes the best predictions.
+Here is one more: Given each weather person's "model" as a means of generating data, which 
+one makes the observed weather most likely?  
+
+\vspace{1in}
+
+```{r, include = FALSE}
+# WP #1
+1^3 * 0.4^7
+# WP #2 -- no chance!
+0^3 * 1^7
+```
+This has two advantages for us:
+
+ <!-- 1.  This is just the likelihood, an important part of our Bayesian modeling system. -->
+
+ <!-- 2. It is based on joint probability rather than average probability.  Weather person 2 is taking unfair advantage of average probability by making predictions we know are "impossible". -->
+
